@@ -14,293 +14,360 @@ from plotly.subplots import make_subplots
 
 # Page configuration
 st.set_page_config(
-    page_title="Heart Rate Disease Risk Calculator",
+    page_title="❤️ Heart Rate Risk Calculator",
     page_icon="❤️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Risk data from meta-analysis
-RISK_DATA = {
-    'Coronary Heart Disease': {
-        'rr_per_10bpm': 1.07,
-        'ci_lower': 1.05,
-        'ci_upper': 1.10,
-        'baseline_risk': 0.06,  # 6% baseline risk
-        'description': 'Risk of coronary artery disease and heart attacks'
-    },
-    'Sudden Cardiac Death': {
-        'rr_per_10bpm': 1.09,
-        'ci_lower': 1.00,
-        'ci_upper': 1.18,
-        'baseline_risk': 0.001,  # 0.1% baseline risk
-        'description': 'Risk of sudden cardiac arrest'
-    },
-    'Heart Failure': {
-        'rr_per_10bpm': 1.18,
-        'ci_lower': 1.10,
-        'ci_upper': 1.27,
-        'baseline_risk': 0.02,  # 2% baseline risk
-        'description': 'Risk of heart failure development'
-    },
-    'Total Stroke': {
-        'rr_per_10bpm': 1.06,
-        'ci_lower': 1.02,
-        'ci_upper': 1.10,
-        'baseline_risk': 0.025,  # 2.5% baseline risk
-        'description': 'Risk of any type of stroke'
-    },
-    'Cardiovascular Disease': {
-        'rr_per_10bpm': 1.15,
-        'ci_lower': 1.11,
-        'ci_upper': 1.18,
-        'baseline_risk': 0.08,  # 8% baseline risk
-        'description': 'Overall cardiovascular disease risk'
-    },
-    'Total Cancer': {
-        'rr_per_10bpm': 1.14,
-        'ci_lower': 1.06,
-        'ci_upper': 1.23,
-        'baseline_risk': 0.12,  # 12% baseline risk
-        'description': 'Risk of developing any type of cancer'
-    },
-    'All-Cause Mortality': {
-        'rr_per_10bpm': 1.17,
-        'ci_lower': 1.14,
-        'ci_upper': 1.19,
-        'baseline_risk': 0.01,  # 1% baseline risk per year
-        'description': 'Risk of death from any cause'
+# Custom CSS for better styling
+st.markdown("""
+<style>
+    .main-header {
+        font-size: 3rem;
+        background: linear-gradient(90deg, #ff6b6b, #ee5a24);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-align: center;
+        padding: 1rem 0;
+        font-weight: bold;
     }
+    
+    .sub-header {
+        font-size: 1.5rem;
+        color: #2c3e50;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    
+    .risk-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 1.5rem;
+        border-radius: 15px;
+        color: white;
+        text-align: center;
+        margin: 1rem 0;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+    }
+    
+    .metric-card {
+        background: white;
+        padding: 1rem;
+        border-radius: 10px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        border-left: 4px solid #3498db;
+        margin: 0.5rem 0;
+    }
+    
+    .warning-box {
+        background: linear-gradient(135deg, #ffeaa7 0%, #fab1a0 100%);
+        padding: 1rem;
+        border-radius: 10px;
+        margin: 1rem 0;
+        border-left: 4px solid #e17055;
+    }
+    
+    .info-box {
+        background: linear-gradient(135deg, #a8e6cf 0%, #88d8c0 100%);
+        padding: 1rem;
+        border-radius: 10px;
+        margin: 1rem 0;
+        border-left: 4px solid #00b894;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Risk calculation data based on meta-analysis
+RISK_DATA = {
+    'Coronary Heart Disease': {'rr': 1.07, 'ci_lower': 1.05, 'ci_upper': 1.10},
+    'Sudden Cardiac Death': {'rr': 1.09, 'ci_lower': 1.00, 'ci_upper': 1.18},
+    'Heart Failure': {'rr': 1.18, 'ci_lower': 1.10, 'ci_upper': 1.27},
+    'Total Stroke': {'rr': 1.06, 'ci_lower': 1.02, 'ci_upper': 1.10},
+    'Cardiovascular Disease': {'rr': 1.15, 'ci_lower': 1.11, 'ci_upper': 1.18},
+    'Total Cancer': {'rr': 1.14, 'ci_lower': 1.06, 'ci_upper': 1.23},
+    'All-cause Mortality': {'rr': 1.17, 'ci_lower': 1.14, 'ci_upper': 1.19}
 }
 
-def calculate_relative_risk(rhr, reference_rhr=70):
-    """Calculate relative risk based on heart rate difference from reference"""
-    risks = {}
-    hr_difference = rhr - reference_rhr
+def calculate_relative_risk(baseline_hr, current_hr, risk_type):
+    """Calculate relative risk based on heart rate difference"""
+    hr_difference = current_hr - baseline_hr
+    hr_increase_per_10 = hr_difference / 10
     
-    for condition, data in RISK_DATA.items():
-        # Calculate relative risk for the heart rate difference
-        # RR = (RR_per_10bpm)^(hr_difference/10)
-        relative_risk = data['rr_per_10bpm'] ** (hr_difference / 10)
-        
-        # Calculate absolute risk
-        absolute_risk = data['baseline_risk'] * relative_risk
-        
-        # Calculate confidence intervals
-        ci_lower_rr = data['ci_lower'] ** (hr_difference / 10)
-        ci_upper_rr = data['ci_upper'] ** (hr_difference / 10)
-        
-        risks[condition] = {
-            'relative_risk': relative_risk,
-            'absolute_risk': absolute_risk,
-            'ci_lower': ci_lower_rr,
-            'ci_upper': ci_upper_rr,
-            'description': data['description']
-        }
+    rr_data = RISK_DATA[risk_type]
+    relative_risk = rr_data['rr'] ** hr_increase_per_10
     
-    return risks
+    return relative_risk
+
+def get_risk_color(relative_risk):
+    """Get color based on risk level"""
+    if relative_risk < 1.1:
+        return "#27ae60"  # Green
+    elif relative_risk < 1.3:
+        return "#f39c12"  # Orange
+    else:
+        return "#e74c3c"  # Red
 
 def get_risk_level(relative_risk):
-    """Categorize risk level based on relative risk"""
-    if relative_risk < 0.8:
-        return "Low", "green"
-    elif relative_risk < 1.2:
-        return "Normal", "blue"
-    elif relative_risk < 1.5:
-        return "Moderate", "orange"
+    """Get risk level description"""
+    if relative_risk < 1.1:
+        return "Low Risk"
+    elif relative_risk < 1.3:
+        return "Moderate Risk"
     else:
-        return "High", "red"
+        return "High Risk"
 
-def create_risk_chart(risks):
-    """Create a horizontal bar chart showing relative risks"""
-    conditions = list(risks.keys())
-    relative_risks = [risks[condition]['relative_risk'] for condition in conditions]
-    ci_lower = [risks[condition]['ci_lower'] for condition in conditions]
-    ci_upper = [risks[condition]['ci_upper'] for condition in conditions]
-    
-    fig = go.Figure()
-    
-    # Add bars
-    colors = ['red' if rr > 1.5 else 'orange' if rr > 1.2 else 'blue' if rr > 0.8 else 'green' 
-              for rr in relative_risks]
-    
-    fig.add_trace(go.Bar(
-        y=conditions,
-        x=relative_risks,
-        orientation='h',
-        marker_color=colors,
-        name='Relative Risk',
-        error_x=dict(
-            type='data',
-            symmetric=False,
-            array=[ci_upper[i] - relative_risks[i] for i in range(len(relative_risks))],
-            arrayminus=[relative_risks[i] - ci_lower[i] for i in range(len(relative_risks))],
-            color='black',
-            thickness=1,
-            width=3
-        )
-    ))
-    
-    # Add reference line at RR = 1
-    fig.add_vline(x=1, line_dash="dash", line_color="black", 
-                  annotation_text="Reference Risk")
-    
-    fig.update_layout(
-        title="Relative Risk by Condition",
-        xaxis_title="Relative Risk",
-        yaxis_title="Condition",
-        height=400,
-        showlegend=False
-    )
-    
-    return fig
-
-def create_heart_rate_curve(condition):
-    """Create a curve showing how risk changes with heart rate"""
-    heart_rates = np.arange(50, 120, 5)
-    reference_hr = 70
-    
-    data = RISK_DATA[condition]
-    relative_risks = [data['rr_per_10bpm'] ** ((hr - reference_hr) / 10) for hr in heart_rates]
-    
-    fig = go.Figure()
-    
-    fig.add_trace(go.Scatter(
-        x=heart_rates,
-        y=relative_risks,
-        mode='lines',
-        name=condition,
-        line=dict(width=3, color='blue')
-    ))
-    
-    fig.add_hline(y=1, line_dash="dash", line_color="black", 
-                  annotation_text="Reference Risk")
-    
-    fig.update_layout(
-        title=f"Risk Curve for {condition}",
-        xaxis_title="Resting Heart Rate (bpm)",
-        yaxis_title="Relative Risk",
-        height=400
-    )
-    
-    return fig
-
-# Main app
 def main():
-    st.title("❤️ Heart Rate Disease Risk Calculator")
-    st.markdown("### Calculate your disease risk based on resting heart rate")
+    # Header
+    st.markdown('<h1 class="main-header">❤️ Heart Rate Risk Calculator</h1>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-header">Assess your cardiovascular disease risk based on resting heart rate</p>', unsafe_allow_html=True)
     
-    # Sidebar for input
+    # Sidebar for inputs
     with st.sidebar:
-        st.header("Input Parameters")
+        st.markdown("### 📊 Input Parameters")
         
-        resting_hr = st.slider(
-            "Resting Heart Rate (bpm)",
-            min_value=40,
-            max_value=120,
-            value=70,
-            step=1,
-            help="Enter your resting heart rate in beats per minute"
+        # Age and gender for context
+        age = st.slider("Age", 20, 90, 50, help="Your current age")
+        gender = st.selectbox("Gender", ["Male", "Female"], help="Biological sex")
+        
+        # Heart rate inputs
+        st.markdown("### 💓 Heart Rate Information")
+        current_hr = st.slider(
+            "Current Resting Heart Rate (bpm)", 
+            40, 120, 72, 
+            help="Your current resting heart rate in beats per minute"
         )
         
-        reference_hr = st.slider(
-            "Reference Heart Rate (bpm)",
-            min_value=40,
-            max_value=120,
-            value=70,
-            step=1,
-            help="Reference heart rate for comparison (default: 70 bpm)"
+        baseline_hr = st.slider(
+            "Baseline/Reference Heart Rate (bpm)", 
+            40, 120, 60, 
+            help="Reference heart rate (typically 60 bpm for healthy adults)"
         )
         
-        st.markdown("---")
-        st.markdown("**Normal Resting Heart Rate Ranges:**")
-        st.markdown("- Adults: 60-100 bpm")
-        st.markdown("- Athletes: 40-60 bpm")
-        st.markdown("- Elderly: 60-100 bpm")
-    
-    # Calculate risks
-    risks = calculate_relative_risk(resting_hr, reference_hr)
+        # Additional health context
+        st.markdown("### 🏥 Health Context")
+        has_conditions = st.multiselect(
+            "Pre-existing conditions (optional)",
+            ["Hypertension", "Diabetes", "Smoking", "Obesity", "Family History of Heart Disease"]
+        )
     
     # Main content area
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        st.subheader("Risk Assessment Results")
+        st.markdown("### 📈 Risk Assessment Results")
         
-        # Create risk summary table
-        risk_df = pd.DataFrame({
-            'Condition': list(risks.keys()),
-            'Relative Risk': [f"{risks[condition]['relative_risk']:.2f}" for condition in risks.keys()],
-            'Risk Level': [get_risk_level(risks[condition]['relative_risk'])[0] for condition in risks.keys()],
-            'Absolute Risk (%)': [f"{risks[condition]['absolute_risk']*100:.2f}%" for condition in risks.keys()],
-            'Description': [risks[condition]['description'] for condition in risks.keys()]
-        })
+        # Calculate risks for all conditions
+        risks = {}
+        for condition in RISK_DATA.keys():
+            risks[condition] = calculate_relative_risk(baseline_hr, current_hr, condition)
         
-        st.dataframe(risk_df, use_container_width=True)
+        # Create risk visualization
+        conditions = list(risks.keys())
+        risk_values = list(risks.values())
+        colors = [get_risk_color(risk) for risk in risk_values]
         
-        # Risk visualization
-        st.plotly_chart(create_risk_chart(risks), use_container_width=True)
+        # Bar chart
+        fig = go.Figure(data=[
+            go.Bar(
+                x=conditions,
+                y=risk_values,
+                marker_color=colors,
+                text=[f"{risk:.2f}x" for risk in risk_values],
+                textposition='auto',
+                hovertemplate='<b>%{x}</b><br>Relative Risk: %{y:.2f}x<extra></extra>'
+            )
+        ])
+        
+        fig.update_layout(
+            title="Relative Risk by Condition",
+            xaxis_title="Health Conditions",
+            yaxis_title="Relative Risk",
+            height=400,
+            showlegend=False,
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            font=dict(size=12)
+        )
+        
+        fig.add_hline(y=1.0, line_dash="dash", line_color="gray", 
+                     annotation_text="Baseline Risk (1.0)")
+        
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Risk level indicators
+        st.markdown("### 🎯 Risk Level Summary")
+        cols = st.columns(3)
+        
+        high_risk = sum(1 for risk in risk_values if risk >= 1.3)
+        moderate_risk = sum(1 for risk in risk_values if 1.1 <= risk < 1.3)
+        low_risk = sum(1 for risk in risk_values if risk < 1.1)
+        
+        with cols[0]:
+            st.metric("🔴 High Risk Conditions", high_risk)
+        with cols[1]:
+            st.metric("🟡 Moderate Risk Conditions", moderate_risk)
+        with cols[2]:
+            st.metric("🟢 Low Risk Conditions", low_risk)
     
     with col2:
-        st.subheader("Risk Interpretation")
+        st.markdown("### 💡 Heart Rate Status")
         
-        # Color-coded risk levels
-        for condition, data in risks.items():
-            risk_level, color = get_risk_level(data['relative_risk'])
-            st.markdown(f"**{condition}:**")
-            st.markdown(f"<span style='color:{color}'>{risk_level} Risk</span>", unsafe_allow_html=True)
-            st.markdown(f"RR: {data['relative_risk']:.2f}")
-            st.markdown("---")
+        # Heart rate status card
+        hr_diff = current_hr - baseline_hr
+        if hr_diff > 0:
+            status = f"⬆️ {hr_diff} bpm above baseline"
+            status_color = "#e74c3c"
+        elif hr_diff < 0:
+            status = f"⬇️ {abs(hr_diff)} bpm below baseline"
+            status_color = "#27ae60"
+        else:
+            status = "✅ At baseline"
+            status_color = "#27ae60"
+        
+        st.markdown(f"""
+        <div class="risk-card" style="background: {status_color};">
+            <h3>Current Status</h3>
+            <p style="font-size: 1.2rem; margin: 0;">{status}</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Normal heart rate ranges
+        st.markdown("### 📏 Normal Ranges")
+        st.markdown("""
+        <div class="info-box">
+            <strong>Normal Resting Heart Rate:</strong><br>
+            • Adults: 60-100 bpm<br>
+            • Athletes: 40-60 bpm<br>
+            • Elderly: 60-100 bpm
+        </div>
+        """, unsafe_allow_html=True)
     
-    # Detailed analysis section
-    st.subheader("Detailed Analysis")
+    # Detailed risk breakdown
+    st.markdown("### 📋 Detailed Risk Analysis")
     
-    # Risk curve for selected condition
-    selected_condition = st.selectbox(
-        "Select condition to view risk curve:",
-        list(RISK_DATA.keys())
+    # Create detailed table
+    risk_df = pd.DataFrame({
+        'Condition': conditions,
+        'Relative Risk': [f"{risk:.2f}x" for risk in risk_values],
+        'Risk Level': [get_risk_level(risk) for risk in risk_values],
+        'Confidence Interval': [f"{RISK_DATA[cond]['ci_lower']:.2f} - {RISK_DATA[cond]['ci_upper']:.2f}" 
+                               for cond in conditions]
+    })
+    
+    # Color code the table
+    def style_risk_level(val):
+        if val == "High Risk":
+            return 'background-color: #ffebee; color: #c62828'
+        elif val == "Moderate Risk":
+            return 'background-color: #fff3e0; color: #ef6c00'
+        else:
+            return 'background-color: #e8f5e8; color: #2e7d32'
+    
+    styled_df = risk_df.style.applymap(style_risk_level, subset=['Risk Level'])
+    st.dataframe(styled_df, use_container_width=True)
+    
+    # Trend analysis
+    st.markdown("### 📊 Heart Rate vs Risk Trend")
+    
+    # Create trend chart
+    hr_range = np.arange(40, 121, 5)
+    
+    fig_trend = make_subplots(
+        rows=2, cols=2,
+        subplot_titles=('Cardiovascular Disease', 'Heart Failure', 'All-cause Mortality', 'Total Cancer'),
+        vertical_spacing=0.12
     )
     
-    if selected_condition:
-        col1, col2 = st.columns(2)
+    selected_conditions = ['Cardiovascular Disease', 'Heart Failure', 'All-cause Mortality', 'Total Cancer']
+    positions = [(1,1), (1,2), (2,1), (2,2)]
+    
+    for i, condition in enumerate(selected_conditions):
+        row, col = positions[i]
+        trend_risks = [calculate_relative_risk(baseline_hr, hr, condition) for hr in hr_range]
         
-        with col1:
-            st.plotly_chart(create_heart_rate_curve(selected_condition), use_container_width=True)
+        fig_trend.add_trace(
+            go.Scatter(
+                x=hr_range, 
+                y=trend_risks,
+                mode='lines+markers',
+                name=condition,
+                line=dict(width=3),
+                marker=dict(size=4)
+            ),
+            row=row, col=col
+        )
         
-        with col2:
-            st.markdown(f"**{selected_condition}**")
-            st.markdown(f"Description: {RISK_DATA[selected_condition]['description']}")
-            st.markdown(f"Relative Risk per 10 bpm increase: {RISK_DATA[selected_condition]['rr_per_10bpm']}")
-            st.markdown(f"95% CI: {RISK_DATA[selected_condition]['ci_lower']:.2f} - {RISK_DATA[selected_condition]['ci_upper']:.2f}")
-            
-            current_risk = risks[selected_condition]
-            st.markdown(f"**Your Risk:**")
-            st.markdown(f"- Relative Risk: {current_risk['relative_risk']:.2f}")
-            st.markdown(f"- Absolute Risk: {current_risk['absolute_risk']*100:.2f}%")
-            st.markdown(f"- Risk Level: {get_risk_level(current_risk['relative_risk'])[0]}")
+        # Add current point
+        current_risk = calculate_relative_risk(baseline_hr, current_hr, condition)
+        fig_trend.add_trace(
+            go.Scatter(
+                x=[current_hr], 
+                y=[current_risk],
+                mode='markers',
+                name=f"Your {condition} Risk",
+                marker=dict(size=12, color='red', symbol='star'),
+                showlegend=False
+            ),
+            row=row, col=col
+        )
     
-    # Information section
-    st.subheader("Important Information")
+    fig_trend.update_layout(
+        height=600,
+        title_text="Risk Trends Across Heart Rate Range",
+        showlegend=False
+    )
     
-    col1, col2 = st.columns(2)
+    fig_trend.update_xaxes(title_text="Heart Rate (bpm)")
+    fig_trend.update_yaxes(title_text="Relative Risk")
     
-    with col1:
-        st.markdown("**Data Source:**")
-        st.markdown("- Meta-analysis from PubMed")
-        st.markdown("- Relative risk per 10 bpm increase")
-        st.markdown("- Dose-response relationship observed")
-        st.markdown("- J-shaped association for atrial fibrillation")
+    st.plotly_chart(fig_trend, use_container_width=True)
     
-    with col2:
-        st.markdown("**Disclaimer:**")
-        st.markdown("- This tool is for educational purposes only")
-        st.markdown("- Not a substitute for medical advice")
-        st.markdown("- Consult healthcare provider for interpretation")
-        st.markdown("- Individual factors may affect actual risk")
+    # Recommendations
+    st.markdown("### 💊 Recommendations")
     
-    # Footer
+    max_risk = max(risk_values)
+    if max_risk >= 1.3:
+        st.markdown("""
+        <div class="warning-box">
+            <strong>⚠️ High Risk Detected</strong><br>
+            Consider consulting with a healthcare provider about your elevated heart rate. 
+            Lifestyle modifications and medical evaluation may be beneficial.
+        </div>
+        """, unsafe_allow_html=True)
+    elif max_risk >= 1.1:
+        st.markdown("""
+        <div class="warning-box">
+            <strong>⚡ Moderate Risk</strong><br>
+            Your heart rate is slightly elevated. Consider lifestyle improvements such as 
+            regular exercise, stress management, and maintaining a healthy weight.
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div class="info-box">
+            <strong>✅ Good Heart Rate Range</strong><br>
+            Your heart rate appears to be in a healthy range. Continue maintaining 
+            a healthy lifestyle with regular exercise and proper nutrition.
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Footer with disclaimer
     st.markdown("---")
-    st.markdown("*Based on meta-analysis data from peer-reviewed research. Results are estimates and should be interpreted by healthcare professionals.*")
+    st.markdown("""
+    <div style="text-align: center; color: #7f8c8d; font-size: 0.9rem;">
+        <strong>⚠️ Medical Disclaimer:</strong> This calculator is for educational purposes only. 
+        The results are based on population-level meta-analysis data and should not replace 
+        professional medical advice. Always consult with a healthcare provider for personal 
+        health assessments and treatment decisions.
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Data source
+    st.markdown("""
+    <div style="text-align: center; color: #95a5a6; font-size: 0.8rem; margin-top: 1rem;">
+        <em>Risk calculations based on meta-analysis of resting heart rate and cardiovascular disease outcomes</em>
+    </div>
+    """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
