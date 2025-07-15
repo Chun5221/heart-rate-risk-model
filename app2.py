@@ -276,7 +276,8 @@ def main():
     fig_trend = make_subplots(
         rows=2, cols=2,
         subplot_titles=('Cardiovascular Disease', 'Heart Failure', 'All-cause Mortality', 'Total Cancer'),
-        vertical_spacing=0.12
+        vertical_spacing=0.15,
+        horizontal_spacing=0.1
     )
     
     selected_conditions = ['Cardiovascular Disease', 'Heart Failure', 'All-cause Mortality', 'Total Cancer']
@@ -313,13 +314,21 @@ def main():
         )
     
     fig_trend.update_layout(
-        height=600,
+        height=700,
         title_text="Risk Trends Across Heart Rate Range",
         showlegend=False
     )
     
-    fig_trend.update_xaxes(title_text="Heart Rate (bpm)")
-    fig_trend.update_yaxes(title_text="Relative Risk")
+    # Update axes for each subplot individually to ensure proper spacing
+    fig_trend.update_xaxes(title_text="Heart Rate (bpm)", row=1, col=1)
+    fig_trend.update_xaxes(title_text="Heart Rate (bpm)", row=1, col=2)
+    fig_trend.update_xaxes(title_text="Heart Rate (bpm)", row=2, col=1)
+    fig_trend.update_xaxes(title_text="Heart Rate (bpm)", row=2, col=2)
+    
+    fig_trend.update_yaxes(title_text="Relative Risk", row=1, col=1)
+    fig_trend.update_yaxes(title_text="Relative Risk", row=1, col=2)
+    fig_trend.update_yaxes(title_text="Relative Risk", row=2, col=1)
+    fig_trend.update_yaxes(title_text="Relative Risk", row=2, col=2)
     
     st.plotly_chart(fig_trend, use_container_width=True)
     
