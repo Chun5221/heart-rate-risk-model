@@ -2,7 +2,7 @@
 """
 Created on Tue Jul 15 09:07:48 2025
 Updateed on Tue Jul 15 09:46 2025
-Updateed on Thu Jul 17 11:33 2025
+Updateed on Thu Jul 17 11:45 2025
 
 @author: chun5
 """
@@ -288,38 +288,52 @@ def main():
     # Trend analysis
     st.markdown("### 📊 Heart Rate vs Risk Trend")
     
-    # Create trend chart for selected high-impact conditions
+    # Create trend chart for all conditions in selected categories
     hr_range = np.arange(40, 121, 5)
     
-    # Select conditions for trend analysis based on categories
-    trend_conditions = []
-    if 'Mortality' in selected_categories:
-        trend_conditions.extend(['All-cause Mortality', 'Cardiovascular Mortality'])
-    if 'Cardiovascular' in selected_categories:
-        trend_conditions.extend(['Coronary Heart Disease', 'Total Stroke'])
-    if 'Kidney' in selected_categories:
-        trend_conditions.extend(['ESRD (End-Stage Renal Disease)', 'Diabetes Mortality'])
-    
-    # Limit to 4 conditions for display
-    trend_conditions = trend_conditions[:4]
+    # Get all conditions for selected categories
+    trend_conditions = [cond for cond, data in RISK_DATA.items() 
+                       if data['category'] in selected_categories]
     
     if len(trend_conditions) > 0:
+        # Calculate number of rows and columns needed
+        n_conditions = len(trend_conditions)
+        n_cols = min(3, n_conditions)  # Maximum 3 columns
+        n_rows = (n_conditions + n_cols - 1) // n_cols  # Ceiling division
+        
         fig_trend = make_subplots(
-            rows=2, cols=2,
+            rows=n_rows, cols=n_cols,
             subplot_titles=trend_conditions,
-            vertical_spacing=0.15,
-            horizontal_spacing=0.1
+            vertical_spacing=0.12,
+            horizontal_spacing=0.08
         )
         
-        positions = [(1,1), (1,2), (2,1), (2,2)]
-        
         for i, condition in enumerate(trend_conditions):
-            if i >= 4:  # Safety check
-                break
-                
-            row, col = positions[i]
+            row = (i // n_cols) + 1
+            col = (i % n_cols) + 1
+            
             trend_risks = [calculate_relative_risk(hr, condition) for hr in hr_range]
             
+            # Add baseline reference line
+            baseline_hr = RISK_DATA[condition]['baseline']
+            fig_trend.add_hline(
+                y=1.0, 
+                line_dash="dash", 
+                line_color="gray", 
+                opacity=0.5,
+                row=row, col=col
+            )
+            
+            # Add vertical line for study baseline
+            fig_trend.add_vline(
+                x=baseline_hr,
+                line_dash="dot",
+                line_color="blue",
+                opacity=0.5,
+                row=row, col=col
+            )
+            
+            # Main trend line
             fig_trend.add_trace(
                 go.Scatter(
                     x=hr_range, 
@@ -327,7 +341,8 @@ def main():
                     mode='lines+markers',
                     name=condition,
                     line=dict(width=3),
-                    marker=dict(size=4)
+                    marker=dict(size=4),
+                    showlegend=False
                 ),
                 row=row, col=col
             )
@@ -339,26 +354,43 @@ def main():
                     x=[current_hr], 
                     y=[current_risk],
                     mode='markers',
-                    name=f"Your {condition} Risk",
+                    name=f"Your Risk",
                     marker=dict(size=12, color='red', symbol='star'),
-                    showlegend=False
+                    showlegend=False,
+                    hovertemplate=f'<b>{condition}</b><br>HR: {current_hr} bpm<br>Risk: {current_risk:.2f}x<extra></extra>'
                 ),
                 row=row, col=col
             )
         
+        # Calculate appropriate height based on number of rows
+        chart_height = max(400, n_rows * 250)
+        
         fig_trend.update_layout(
-            height=700,
-            title_text="Risk Trends Across Heart Rate Range",
-            showlegend=False
+            height=chart_height,
+            title_text=f"Risk Trends for {', '.join(selected_categories)} Categories",
+            showlegend=False,
+            font=dict(size=10)
         )
         
-        # Update axes for each subplot individually to ensure proper spacing
-        for i in range(min(len(trend_conditions), 4)):
-            row, col = positions[i]
+        # Update axes for each subplot
+        for i in range(n_conditions):
+            row = (i // n_cols) + 1
+            col = (i % n_cols) + 1
             fig_trend.update_xaxes(title_text="Heart Rate (bpm)", row=row, col=col)
             fig_trend.update_yaxes(title_text="Relative Risk", row=row, col=col)
         
         st.plotly_chart(fig_trend, use_container_width=True)
+        
+        # Add legend explanation
+        st.markdown("""
+        <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
+            <strong>📖 Chart Legend:</strong><br>
+            • <span style="color: gray;">Gray dashed line</span>: Baseline risk (1.0x)<br>
+            • <span style="color: blue;">Blue dotted line</span>: Study baseline heart rate<br>
+            • <span style="color: red;">Red star</span>: Your current risk level
+        </div>
+        """, unsafe_allow_html=True)
+        
     else:
         st.info("Please select at least one category to view trend analysis.")
     
