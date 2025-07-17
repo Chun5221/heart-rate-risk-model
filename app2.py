@@ -2,7 +2,7 @@
 """
 Created on Tue Jul 15 09:07:48 2025
 Updateed on Tue Jul 15 09:46 2025
-Updateed on Thu Jul 17 13:47 2025
+Updateed on Thu Jul 17 13:51 2025
 
 @author: chun5
 """
@@ -304,8 +304,9 @@ def main():
         fig_trend = make_subplots(
             rows=n_rows, cols=n_cols,
             subplot_titles=trend_conditions,
-            vertical_spacing=0.20,  # Increased vertical spacing
-            horizontal_spacing=0.12  # Increased horizontal spacing
+            vertical_spacing=0.25,  # Increased from 0.12
+            horizontal_spacing=0.15,  # Increased from 0.08
+            specs=[[{"secondary_y": False} for _ in range(n_cols)] for _ in range(n_rows)]
         )
         
         for i, condition in enumerate(trend_conditions):
@@ -362,69 +363,33 @@ def main():
                 row=row, col=col
             )
         
-        # Calculate appropriate height based on number of rows with extra spacing
-        chart_height = max(500, n_rows * 300)  # Increased base height and multiplier
+        # Calculate appropriate height with more generous spacing
+        chart_height = max(500, n_rows * 350)  # Increased from 250
         
         fig_trend.update_layout(
             height=chart_height,
             title_text=f"Risk Trends for {', '.join(selected_categories)} Categories",
             showlegend=False,
             font=dict(size=10),
-            margin=dict(l=50, r=50, t=80, b=50)  # Added margins for better spacing
+            margin=dict(l=50, r=50, t=80, b=50)  # Added margins
         )
         
-        # Update axes for each subplot with individual spacing
+        # Update axes for each subplot with more spacing
         for i in range(n_conditions):
             row = (i // n_cols) + 1
             col = (i % n_cols) + 1
             fig_trend.update_xaxes(
                 title_text="Heart Rate (bpm)", 
                 row=row, col=col,
-                title_font=dict(size=10),
+                title_standoff=20,  # Add space between axis and title
                 tickfont=dict(size=9)
             )
             fig_trend.update_yaxes(
                 title_text="Relative Risk", 
                 row=row, col=col,
-                title_font=dict(size=10),
+                title_standoff=20,  # Add space between axis and title
                 tickfont=dict(size=9)
             )
-        
-        st.plotly_chart(fig_trend, use_container_width=True)
-        
-        # Add legend explanation
-        st.markdown("""
-        <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
-            <strong>📖 Chart Legend:</strong><br>
-            • <span style="color: gray;">Gray dashed line</span>: Baseline risk (1.0x)<br>
-            • <span style="color: blue;">Blue dotted line</span>: Study baseline heart rate<br>
-            • <span style="color: red;">Red star</span>: Your current risk level
-        </div>
-        """, unsafe_allow_html=True)
-        
-    else:
-        st.info("Please select at least one category to view trend analysis.")
-                    hovertemplate=f'<b>{condition}</b><br>HR: {current_hr} bpm<br>Risk: {current_risk:.2f}x<extra></extra>'
-                ),
-                row=row, col=col
-            )
-        
-        # Calculate appropriate height based on number of rows
-        chart_height = max(400, n_rows * 250)
-        
-        fig_trend.update_layout(
-            height=chart_height,
-            title_text=f"Risk Trends for {', '.join(selected_categories)} Categories",
-            showlegend=False,
-            font=dict(size=10)
-        )
-        
-        # Update axes for each subplot
-        for i in range(n_conditions):
-            row = (i // n_cols) + 1
-            col = (i % n_cols) + 1
-            fig_trend.update_xaxes(title_text="Heart Rate (bpm)", row=row, col=col)
-            fig_trend.update_yaxes(title_text="Relative Risk", row=row, col=col)
         
         st.plotly_chart(fig_trend, use_container_width=True)
         
