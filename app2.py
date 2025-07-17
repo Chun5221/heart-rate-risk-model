@@ -211,7 +211,7 @@ def main():
         )
         
         fig.add_hline(y=1.0, line_dash="dash", line_color="gray", 
-                     annotation_text="Baseline Risk (1.0)")
+                     annotation_text="Baseline Risk (1.0)", annotation_position="bottom right")
         
         st.plotly_chart(fig, use_container_width=True)
         
