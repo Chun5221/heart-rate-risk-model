@@ -301,14 +301,21 @@ def main():
         n_cols = min(3, n_conditions)  # Maximum 3 columns
         n_rows = (n_conditions + n_cols - 1) // n_cols  # Ceiling division
         
-        # Dynamic spacing based on number of conditions
-        if n_conditions <= 3:
+        # Dynamic spacing based on number of rows and columns
+        if n_rows == 1:
+            # Single row - use generous spacing
             vertical_spacing = 0.25
             horizontal_spacing = 0.15
-        elif n_conditions <= 6:
-            vertical_spacing = 0.15
-            horizontal_spacing = 0.10
+        elif n_rows == 2:
+            # Two rows - use medium spacing
+            vertical_spacing = 0.20
+            horizontal_spacing = 0.12
+        elif n_rows == 3:
+            # Three rows - use smaller spacing but still readable (good for 9 conditions in 3x3)
+            vertical_spacing = 0.12
+            horizontal_spacing = 0.08
         else:
+            # Four or more rows - use minimal spacing
             vertical_spacing = 0.08
             horizontal_spacing = 0.05
         
@@ -374,21 +381,26 @@ def main():
                 row=row, col=col
             )
         
-        # Dynamic height and margins based on number of conditions
-        if n_conditions <= 3:
-            chart_height = max(500, n_rows * 350)
+        # Dynamic height and margins based on number of rows
+        if n_rows == 1:
+            chart_height = 400
             margin_dict = dict(l=50, r=50, t=80, b=50)
             title_standoff = 20
             font_size = 10
-        elif n_conditions <= 6:
-            chart_height = max(600, n_rows * 280)
-            margin_dict = dict(l=40, r=40, t=70, b=40)
-            title_standoff = 15
+        elif n_rows == 2:
+            chart_height = 600
+            margin_dict = dict(l=45, r=45, t=75, b=45)
+            title_standoff = 18
+            font_size = 10
+        elif n_rows == 3:
+            chart_height = 900
+            margin_dict = dict(l=35, r=35, t=65, b=35)
+            title_standoff = 12
             font_size = 9
         else:
-            chart_height = max(700, n_rows * 220)
-            margin_dict = dict(l=30, r=30, t=60, b=30)
-            title_standoff = 10
+            chart_height = max(800, n_rows * 200)
+            margin_dict = dict(l=35, r=35, t=65, b=35)
+            title_standoff = 12
             font_size = 8
         
         fig_trend.update_layout(
