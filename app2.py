@@ -301,11 +301,22 @@ def main():
         n_cols = min(3, n_conditions)  # Maximum 3 columns
         n_rows = (n_conditions + n_cols - 1) // n_cols  # Ceiling division
         
+        # Dynamic spacing based on number of conditions
+        if n_conditions <= 3:
+            vertical_spacing = 0.25
+            horizontal_spacing = 0.15
+        elif n_conditions <= 6:
+            vertical_spacing = 0.15
+            horizontal_spacing = 0.10
+        else:
+            vertical_spacing = 0.08
+            horizontal_spacing = 0.05
+        
         fig_trend = make_subplots(
             rows=n_rows, cols=n_cols,
             subplot_titles=trend_conditions,
-            vertical_spacing=0.25,  # Increased from 0.12
-            horizontal_spacing=0.15,  # Increased from 0.08
+            vertical_spacing=vertical_spacing,
+            horizontal_spacing=horizontal_spacing,
             specs=[[{"secondary_y": False} for _ in range(n_cols)] for _ in range(n_rows)]
         )
         
@@ -363,32 +374,46 @@ def main():
                 row=row, col=col
             )
         
-        # Calculate appropriate height with more generous spacing
-        chart_height = max(500, n_rows * 350)  # Increased from 250
+        # Dynamic height and margins based on number of conditions
+        if n_conditions <= 3:
+            chart_height = max(500, n_rows * 350)
+            margin_dict = dict(l=50, r=50, t=80, b=50)
+            title_standoff = 20
+            font_size = 10
+        elif n_conditions <= 6:
+            chart_height = max(600, n_rows * 280)
+            margin_dict = dict(l=40, r=40, t=70, b=40)
+            title_standoff = 15
+            font_size = 9
+        else:
+            chart_height = max(700, n_rows * 220)
+            margin_dict = dict(l=30, r=30, t=60, b=30)
+            title_standoff = 10
+            font_size = 8
         
         fig_trend.update_layout(
             height=chart_height,
             title_text=f"Risk Trends for {', '.join(selected_categories)} Categories",
             showlegend=False,
-            font=dict(size=10),
-            margin=dict(l=50, r=50, t=80, b=50)  # Added margins
+            font=dict(size=font_size),
+            margin=margin_dict
         )
         
-        # Update axes for each subplot with more spacing
+        # Update axes for each subplot with dynamic spacing
         for i in range(n_conditions):
             row = (i // n_cols) + 1
             col = (i % n_cols) + 1
             fig_trend.update_xaxes(
                 title_text="Heart Rate (bpm)", 
                 row=row, col=col,
-                title_standoff=20,  # Add space between axis and title
-                tickfont=dict(size=9)
+                title_standoff=title_standoff,
+                tickfont=dict(size=font_size-1)
             )
             fig_trend.update_yaxes(
                 title_text="Relative Risk", 
                 row=row, col=col,
-                title_standoff=20,  # Add space between axis and title
-                tickfont=dict(size=9)
+                title_standoff=title_standoff,
+                tickfont=dict(size=font_size-1)
             )
         
         st.plotly_chart(fig_trend, use_container_width=True)
