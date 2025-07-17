@@ -2,6 +2,7 @@
 """
 Created on Tue Jul 15 09:07:48 2025
 Updateed on Tue Jul 15 09:46 2025
+Updateed on Thu Jul 17 11:33 2025
 
 @author: chun5
 """
@@ -80,21 +81,31 @@ st.markdown("""
 
 # Risk calculation data based on meta-analysis
 RISK_DATA = {
-    'Coronary Heart Disease': {'rr': 1.07, 'ci_lower': 1.05, 'ci_upper': 1.10},
-    'Sudden Cardiac Death': {'rr': 1.09, 'ci_lower': 1.00, 'ci_upper': 1.18},
-    'Heart Failure': {'rr': 1.18, 'ci_lower': 1.10, 'ci_upper': 1.27},
-    'Total Stroke': {'rr': 1.06, 'ci_lower': 1.02, 'ci_upper': 1.10},
-    'Cardiovascular Disease': {'rr': 1.15, 'ci_lower': 1.11, 'ci_upper': 1.18},
-    'Total Cancer': {'rr': 1.14, 'ci_lower': 1.06, 'ci_upper': 1.23},
-    'All-cause Mortality': {'rr': 1.17, 'ci_lower': 1.14, 'ci_upper': 1.19}
+    # From paper 1 (baseline 65 bpm)
+    'All-cause Mortality': {'rr': 1.4, 'baseline': 65, 'category': 'Mortality'},
+    'Cardiovascular Mortality': {'rr': 1.42, 'baseline': 65, 'category': 'Mortality'},
+    'Heart Failure Mortality': {'rr': 1.67, 'baseline': 65, 'category': 'Mortality'},
+    'Coronary Heart Disease': {'rr': 1.18, 'baseline': 65, 'category': 'Cardiovascular'},
+    'Total Stroke': {'rr': 1.32, 'baseline': 65, 'category': 'Cardiovascular'},
+    'Hemorrhagic Stroke': {'rr': 1.29, 'baseline': 65, 'category': 'Cardiovascular'},
+    'Ischemic Stroke': {'rr': 1.28, 'baseline': 65, 'category': 'Cardiovascular'},
+    
+    # From paper 2 (baseline 60 bpm)
+    'ESRD (End-Stage Renal Disease)': {'rr': 1.14, 'baseline': 60, 'category': 'Kidney'},
+    'Diabetes Mortality': {'rr': 1.26, 'baseline': 60, 'category': 'Mortality'},
+    'Kidney Disease Mortality': {'rr': 1.24, 'baseline': 60, 'category': 'Mortality'}
 }
 
-def calculate_relative_risk(baseline_hr, current_hr, risk_type):
-    """Calculate relative risk based on heart rate difference"""
-    hr_difference = current_hr - baseline_hr
+def calculate_relative_risk(current_hr, risk_type):
+    """Calculate relative risk based on heart rate difference from study baseline"""
+    rr_data = RISK_DATA[risk_type]
+    study_baseline = rr_data['baseline']
+    
+    # Calculate difference from study baseline
+    hr_difference = current_hr - study_baseline
     hr_increase_per_10 = hr_difference / 10
     
-    rr_data = RISK_DATA[risk_type]
+    # Calculate relative risk
     relative_risk = rr_data['rr'] ** hr_increase_per_10
     
     return relative_risk
@@ -138,10 +149,16 @@ def main():
             help="Your current resting heart rate in beats per minute"
         )
         
-        baseline_hr = st.slider(
-            "Baseline/Reference Heart Rate (bpm)", 
-            40, 120, 60, 
-            help="Reference heart rate (typically 60 bpm for healthy adults)"
+        # Show study baselines for reference
+        st.markdown("### 📚 Study Reference Points")
+        st.info("📊 Study baselines: 65 bpm (cardiovascular outcomes) and 60 bpm (kidney/diabetes outcomes)")
+        
+        # Risk category filter
+        st.markdown("### 🔍 Filter by Category")
+        selected_categories = st.multiselect(
+            "Select risk categories to display:",
+            ["Mortality", "Cardiovascular", "Kidney"],
+            default=["Mortality", "Cardiovascular", "Kidney"]
         )
         
         # Additional health context
@@ -159,8 +176,11 @@ def main():
         
         # Calculate risks for all conditions
         risks = {}
-        for condition in RISK_DATA.keys():
-            risks[condition] = calculate_relative_risk(baseline_hr, current_hr, condition)
+        filtered_conditions = [cond for cond, data in RISK_DATA.items() 
+                              if data['category'] in selected_categories]
+        
+        for condition in filtered_conditions:
+            risks[condition] = calculate_relative_risk(current_hr, condition)
         
         # Create risk visualization
         conditions = list(risks.keys())
@@ -214,21 +234,17 @@ def main():
         st.markdown("### 💡 Heart Rate Status")
         
         # Heart rate status card
-        hr_diff = current_hr - baseline_hr
-        if hr_diff > 0:
-            status = f"⬆️ {hr_diff} bpm above baseline"
-            status_color = "#e74c3c"
-        elif hr_diff < 0:
-            status = f"⬇️ {abs(hr_diff)} bpm below baseline"
-            status_color = "#27ae60"
-        else:
-            status = "✅ At baseline"
-            status_color = "#27ae60"
+        cardiovascular_baseline = 65
+        kidney_baseline = 60
+        
+        cv_diff = current_hr - cardiovascular_baseline
+        kidney_diff = current_hr - kidney_baseline
         
         st.markdown(f"""
-        <div class="risk-card" style="background: {status_color};">
-            <h3>Current Status</h3>
-            <p style="font-size: 1.2rem; margin: 0;">{status}</p>
+        <div class="info-box">
+            <h4>📊 Status vs Study Baselines</h4>
+            <p><strong>Cardiovascular studies:</strong> {cv_diff:+d} bpm from 65 bpm baseline</p>
+            <p><strong>Kidney/Diabetes studies:</strong> {kidney_diff:+d} bpm from 60 bpm baseline</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -246,13 +262,15 @@ def main():
     # Detailed risk breakdown
     st.markdown("### 📋 Detailed Risk Analysis")
     
-    # Create detailed table
+    # Create detailed table with categories
+    conditions = list(risks.keys())
     risk_df = pd.DataFrame({
         'Condition': conditions,
-        'Relative Risk': [f"{risk:.2f}x" for risk in risk_values],
-        'Risk Level': [get_risk_level(risk) for risk in risk_values],
-        'Confidence Interval': [f"{RISK_DATA[cond]['ci_lower']:.2f} - {RISK_DATA[cond]['ci_upper']:.2f}" 
-                               for cond in conditions]
+        'Category': [RISK_DATA[cond]['category'] for cond in conditions],
+        'Study Baseline': [f"{RISK_DATA[cond]['baseline']} bpm" for cond in conditions],
+        'Risk per 10 bpm': [f"{RISK_DATA[cond]['rr']:.2f}x" for cond in conditions],
+        'Your Relative Risk': [f"{risks[cond]:.2f}x" for cond in conditions],
+        'Risk Level': [get_risk_level(risks[cond]) for cond in conditions]
     })
     
     # Color code the table
@@ -270,67 +288,79 @@ def main():
     # Trend analysis
     st.markdown("### 📊 Heart Rate vs Risk Trend")
     
-    # Create trend chart
+    # Create trend chart for selected high-impact conditions
     hr_range = np.arange(40, 121, 5)
     
-    fig_trend = make_subplots(
-        rows=2, cols=2,
-        subplot_titles=('Cardiovascular Disease', 'Heart Failure', 'All-cause Mortality', 'Total Cancer'),
-        vertical_spacing=0.15,
-        horizontal_spacing=0.1
-    )
+    # Select conditions for trend analysis based on categories
+    trend_conditions = []
+    if 'Mortality' in selected_categories:
+        trend_conditions.extend(['All-cause Mortality', 'Cardiovascular Mortality'])
+    if 'Cardiovascular' in selected_categories:
+        trend_conditions.extend(['Coronary Heart Disease', 'Total Stroke'])
+    if 'Kidney' in selected_categories:
+        trend_conditions.extend(['ESRD (End-Stage Renal Disease)', 'Diabetes Mortality'])
     
-    selected_conditions = ['Cardiovascular Disease', 'Heart Failure', 'All-cause Mortality', 'Total Cancer']
-    positions = [(1,1), (1,2), (2,1), (2,2)]
+    # Limit to 4 conditions for display
+    trend_conditions = trend_conditions[:4]
     
-    for i, condition in enumerate(selected_conditions):
-        row, col = positions[i]
-        trend_risks = [calculate_relative_risk(baseline_hr, hr, condition) for hr in hr_range]
-        
-        fig_trend.add_trace(
-            go.Scatter(
-                x=hr_range, 
-                y=trend_risks,
-                mode='lines+markers',
-                name=condition,
-                line=dict(width=3),
-                marker=dict(size=4)
-            ),
-            row=row, col=col
+    if len(trend_conditions) > 0:
+        fig_trend = make_subplots(
+            rows=2, cols=2,
+            subplot_titles=trend_conditions,
+            vertical_spacing=0.15,
+            horizontal_spacing=0.1
         )
         
-        # Add current point
-        current_risk = calculate_relative_risk(baseline_hr, current_hr, condition)
-        fig_trend.add_trace(
-            go.Scatter(
-                x=[current_hr], 
-                y=[current_risk],
-                mode='markers',
-                name=f"Your {condition} Risk",
-                marker=dict(size=12, color='red', symbol='star'),
-                showlegend=False
-            ),
-            row=row, col=col
+        positions = [(1,1), (1,2), (2,1), (2,2)]
+        
+        for i, condition in enumerate(trend_conditions):
+            if i >= 4:  # Safety check
+                break
+                
+            row, col = positions[i]
+            trend_risks = [calculate_relative_risk(hr, condition) for hr in hr_range]
+            
+            fig_trend.add_trace(
+                go.Scatter(
+                    x=hr_range, 
+                    y=trend_risks,
+                    mode='lines+markers',
+                    name=condition,
+                    line=dict(width=3),
+                    marker=dict(size=4)
+                ),
+                row=row, col=col
+            )
+            
+            # Add current point
+            current_risk = calculate_relative_risk(current_hr, condition)
+            fig_trend.add_trace(
+                go.Scatter(
+                    x=[current_hr], 
+                    y=[current_risk],
+                    mode='markers',
+                    name=f"Your {condition} Risk",
+                    marker=dict(size=12, color='red', symbol='star'),
+                    showlegend=False
+                ),
+                row=row, col=col
+            )
+        
+        fig_trend.update_layout(
+            height=700,
+            title_text="Risk Trends Across Heart Rate Range",
+            showlegend=False
         )
-    
-    fig_trend.update_layout(
-        height=700,
-        title_text="Risk Trends Across Heart Rate Range",
-        showlegend=False
-    )
-    
-    # Update axes for each subplot individually to ensure proper spacing
-    fig_trend.update_xaxes(title_text="Heart Rate (bpm)", row=1, col=1)
-    fig_trend.update_xaxes(title_text="Heart Rate (bpm)", row=1, col=2)
-    fig_trend.update_xaxes(title_text="Heart Rate (bpm)", row=2, col=1)
-    fig_trend.update_xaxes(title_text="Heart Rate (bpm)", row=2, col=2)
-    
-    fig_trend.update_yaxes(title_text="Relative Risk", row=1, col=1)
-    fig_trend.update_yaxes(title_text="Relative Risk", row=1, col=2)
-    fig_trend.update_yaxes(title_text="Relative Risk", row=2, col=1)
-    fig_trend.update_yaxes(title_text="Relative Risk", row=2, col=2)
-    
-    st.plotly_chart(fig_trend, use_container_width=True)
+        
+        # Update axes for each subplot individually to ensure proper spacing
+        for i in range(min(len(trend_conditions), 4)):
+            row, col = positions[i]
+            fig_trend.update_xaxes(title_text="Heart Rate (bpm)", row=row, col=col)
+            fig_trend.update_yaxes(title_text="Relative Risk", row=row, col=col)
+        
+        st.plotly_chart(fig_trend, use_container_width=True)
+    else:
+        st.info("Please select at least one category to view trend analysis.")
     
     # Recommendations
     st.markdown("### 💊 Recommendations")
@@ -375,7 +405,9 @@ def main():
     # Data source
     st.markdown("""
     <div style="text-align: center; color: #95a5a6; font-size: 0.8rem; margin-top: 1rem;">
-        <em>Risk calculations based on meta-analysis of resting heart rate and cardiovascular disease outcomes</em>
+        <em>Risk calculations based on meta-analysis studies:<br>
+        • Cardiovascular outcomes: baseline 65 bpm<br>
+        • Kidney and diabetes outcomes: baseline 60 bpm</em>
     </div>
     """, unsafe_allow_html=True)
 
