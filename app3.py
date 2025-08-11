@@ -2,6 +2,7 @@
 """
 Created on Mon Aug 11 10:19:31 2025
 Updated on Mon Aug 11 11:01 2025
+Updated on Mon Aug 11 15:29 2025
 
 @author: chun5
 """
@@ -16,7 +17,7 @@ import math
 
 # Page configuration
 st.set_page_config(
-    page_title="❤️ Comprehensive Health Risk Calculator - TWB Model",
+    page_title="❤️ Heart Rate Risk Calculator",
     page_icon="❤️",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -76,839 +77,892 @@ st.markdown("""
         margin: 1rem 0;
         border-left: 4px solid #00b894;
     }
-    
-    .factor-box {
-        background: linear-gradient(135deg, #ddd6fe 0%, #c4b5fd 100%);
-        padding: 1rem;
-        border-radius: 10px;
-        margin: 1rem 0;
-        border-left: 4px solid #8b5cf6;
-    }
 </style>
 """, unsafe_allow_html=True)
 
+# Load and parse the Cox regression model coefficients
 @st.cache_data
-def load_twb_data():
-    """Load and process complete TWB model data"""
-    twb_data = {
-        'Atrial Fibrillation': {
-            # Heart Rate Categories
-            'HR_cat<60': 1.278584, 'HR_cat60-69': 1.0, 'HR_cat70-79': 1.007198,
-            'HR_cat80-89': 1.329859, 'HR_cat>=90': 1.870907,
-            # Demographics
-            'AGE': 1.097335, 'MALE': 1.0, 'FEMALE': 0.43779, 'BMI': 1.054307,
-            # Lifestyle
-            'Never_smoke': 1.0, 'Ever_smoke': 1.041755, 'Now_smoke': 0.796538,
-            'Never_drink': 1.0, 'Ever_drink': 1.120964, 'Now_drink': 1.082538,
-            'category': 'Cardiovascular'
-        },
-        'Anxiety': {
-            'HR_cat<60': 0.9853143, 'HR_cat60-69': 1.0, 'HR_cat70-79': 1.0337353,
-            'HR_cat80-89': 1.0830412, 'HR_cat>=90': 1.0332187,
-            'AGE': 1.0224173, 'MALE': 1.0, 'FEMALE': 1.7524471, 'BMI': 0.9789276,
-            'Never_smoke': 1.0, 'Ever_smoke': 1.1469517, 'Now_smoke': 1.2107771,
-            'Never_drink': 1.0, 'Ever_drink': 1.2639205, 'Now_drink': 1.1566027,
-            'category': 'Mental Health'
-        },
-        'Chronic Kidney Disease': {
-            'HR_cat<60': 0.962877, 'HR_cat60-69': 1.0, 'HR_cat70-79': 1.120832,
-            'HR_cat80-89': 1.344067, 'HR_cat>=90': 2.055936,
-            'AGE': 1.070072, 'MALE': 1.0, 'FEMALE': 0.714564, 'BMI': 1.085128,
-            'Never_smoke': 1.0, 'Ever_smoke': 1.035606, 'Now_smoke': 1.035984,
-            'Never_drink': 1.0, 'Ever_drink': 1.327176, 'Now_drink': 0.906842,
-            'category': 'Kidney'
-        },
-        'GERD': {
-            'HR_cat<60': 1.0175125, 'HR_cat60-69': 1.0, 'HR_cat70-79': 1.1123568,
-            'HR_cat80-89': 1.1324623, 'HR_cat>=90': 1.2009102,
-            'AGE': 1.0111128, 'MALE': 1.0, 'FEMALE': 1.1882805, 'BMI': 1.0031746,
-            'Never_smoke': 1.0, 'Ever_smoke': 1.1259326, 'Now_smoke': 0.9475566,
-            'Never_drink': 1.0, 'Ever_drink': 1.0541823, 'Now_drink': 1.0703914,
-            'category': 'Digestive'
-        },
-        'Heart Failure': {
-            'HR_cat<60': 1.099216, 'HR_cat60-69': 1.0, 'HR_cat70-79': 1.047627,
-            'HR_cat80-89': 1.324929, 'HR_cat>=90': 1.384662,
-            'AGE': 1.080752, 'MALE': 1.0, 'FEMALE': 0.948374, 'BMI': 1.113224,
-            'Never_smoke': 1.0, 'Ever_smoke': 1.165321, 'Now_smoke': 1.289472,
-            'Never_drink': 1.0, 'Ever_drink': 1.136773, 'Now_drink': 0.980753,
-            'category': 'Cardiovascular'
-        },
-        'Myocardial Infarction': {
-            'HR_cat<60': 1.305421, 'HR_cat60-69': 1.0, 'HR_cat70-79': 1.097465,
-            'HR_cat80-89': 1.15584, 'HR_cat>=90': 1.156146,
-            'AGE': 1.082279, 'MALE': 1.0, 'FEMALE': 0.355145, 'BMI': 1.092264,
-            'Never_smoke': 1.0, 'Ever_smoke': 1.557379, 'Now_smoke': 2.347051,
-            'Never_drink': 1.0, 'Ever_drink': 1.266607, 'Now_drink': 0.690009,
-            'category': 'Cardiovascular'
-        },
-        'Type 2 Diabetes': {
-            'HR_cat<60': 0.891278, 'HR_cat60-69': 1.0, 'HR_cat70-79': 1.268673,
-            'HR_cat80-89': 1.65573, 'HR_cat>=90': 2.01645,
-            'AGE': 1.059158, 'MALE': 1.0, 'FEMALE': 1.098451, 'BMI': 1.118891,
-            'Never_smoke': 1.0, 'Ever_smoke': 1.145229, 'Now_smoke': 1.203484,
-            'Never_drink': 1.0, 'Ever_drink': 1.183832, 'Now_drink': 1.130815,
-            'category': 'Metabolic'
-        },
-        'Anemia': {
-            'HR_cat<60': 0.9614963, 'HR_cat60-69': 1.0, 'HR_cat70-79': 1.1027278,
-            'HR_cat80-89': 1.2191359, 'HR_cat>=90': 1.0937225,
-            'AGE': 0.9938358, 'MALE': 1.0, 'FEMALE': 3.0926062, 'BMI': 0.9927205,
-            'Never_smoke': 1.0, 'Ever_smoke': 1.2353906, 'Now_smoke': 0.9478152,
-            'Never_drink': 1.0, 'Ever_drink': 1.1823343, 'Now_drink': 0.8406682,
-            'category': 'Blood'
-        },
-        'Angina Pectoris': {
-            'HR_cat<60': 1.154145, 'HR_cat60-69': 1.0, 'HR_cat70-79': 0.930245,
-            'HR_cat80-89': 1.032199, 'HR_cat>=90': 0.907764,
-            'AGE': 1.058539, 'MALE': 1.0, 'FEMALE': 0.831779, 'BMI': 1.057477,
-            'Never_smoke': 1.0, 'Ever_smoke': 1.227097, 'Now_smoke': 1.229498,
-            'Never_drink': 1.0, 'Ever_drink': 1.212417, 'Now_drink': 0.994733,
-            'category': 'Cardiovascular'
-        },
-        'Asthma': {
-            'HR_cat<60': 0.898631, 'HR_cat60-69': 1.0, 'HR_cat70-79': 1.022859,
-            'HR_cat80-89': 1.055431, 'HR_cat>=90': 1.280111,
-            'AGE': 1.018948, 'MALE': 1.0, 'FEMALE': 1.417606, 'BMI': 1.052391,
-            'Never_smoke': 1.0, 'Ever_smoke': 1.198245, 'Now_smoke': 1.171488,
-            'Never_drink': 1.0, 'Ever_drink': 1.05014, 'Now_drink': 0.927569,
-            'category': 'Respiratory'
-        },
-        'Atherosclerosis': {
-            'HR_cat<60': 1.154199, 'HR_cat60-69': 1.0, 'HR_cat70-79': 0.954146,
-            'HR_cat80-89': 0.989229, 'HR_cat>=90': 0.824199,
-            'AGE': 1.079968, 'MALE': 1.0, 'FEMALE': 0.622169, 'BMI': 1.076141,
-            'Never_smoke': 1.0, 'Ever_smoke': 1.244718, 'Now_smoke': 1.220403,
-            'Never_drink': 1.0, 'Ever_drink': 1.284505, 'Now_drink': 1.050576,
-            'category': 'Cardiovascular'
-        },
-        'Cardiac Arrhythmia': {
-            'HR_cat<60': 1.198335, 'HR_cat60-69': 1.0, 'HR_cat70-79': 1.069528,
-            'HR_cat80-89': 1.25314, 'HR_cat>=90': 1.516303,
-            'AGE': 1.034404, 'MALE': 1.0, 'FEMALE': 1.221919, 'BMI': 1.003799,
-            'Never_smoke': 1.0, 'Ever_smoke': 1.063968, 'Now_smoke': 0.942808,
-            'Never_drink': 1.0, 'Ever_drink': 1.164741, 'Now_drink': 1.056686,
-            'category': 'Cardiovascular'
-        },
-        'Depression': {
-            'HR_cat<60': 1.1269417, 'HR_cat60-69': 1.0, 'HR_cat70-79': 1.1207691,
-            'HR_cat80-89': 1.4019456, 'HR_cat>=90': 1.7691724,
-            'AGE': 1.0124351, 'MALE': 1.0, 'FEMALE': 1.8196446, 'BMI': 0.9903191,
-            'Never_smoke': 1.0, 'Ever_smoke': 1.3618666, 'Now_smoke': 1.749551,
-            'Never_drink': 1.0, 'Ever_drink': 1.4718567, 'Now_drink': 0.9993047,
-            'category': 'Mental Health'
-        },
-        'Hypertension': {
-            'HR_cat<60': 0.943739, 'HR_cat60-69': 1.0, 'HR_cat70-79': 1.21525,
-            'HR_cat80-89': 1.478731, 'HR_cat>=90': 1.908702,
-            'AGE': 1.060353, 'MALE': 1.0, 'FEMALE': 0.89628, 'BMI': 1.122546,
-            'Never_smoke': 1.0, 'Ever_smoke': 1.047533, 'Now_smoke': 1.10408,
-            'Never_drink': 1.0, 'Ever_drink': 1.203899, 'Now_drink': 1.324933,
-            'category': 'Cardiovascular'
-        },
-        'Ischemic Heart Disease': {
-            'HR_cat<60': 1.192775, 'HR_cat60-69': 1.0, 'HR_cat70-79': 1.024668,
-            'HR_cat80-89': 0.983446, 'HR_cat>=90': 0.984206,
-            'AGE': 1.079249, 'MALE': 1.0, 'FEMALE': 0.817353, 'BMI': 1.074744,
-            'Never_smoke': 1.0, 'Ever_smoke': 1.116484, 'Now_smoke': 1.238498,
-            'Never_drink': 1.0, 'Ever_drink': 1.249432, 'Now_drink': 0.890876,
-            'category': 'Cardiovascular'
-        },
-        'Ischemic Stroke': {
-            'HR_cat<60': 1.101362, 'HR_cat60-69': 1.0, 'HR_cat70-79': 1.315702,
-            'HR_cat80-89': 1.543814, 'HR_cat>=90': 1.654512,
-            'AGE': 1.08316, 'MALE': 1.0, 'FEMALE': 0.833408, 'BMI': 1.053648,
-            'Never_smoke': 1.0, 'Ever_smoke': 1.0919, 'Now_smoke': 1.504703,
-            'Never_drink': 1.0, 'Ever_drink': 1.299209, 'Now_drink': 1.251103,
-            'category': 'Cardiovascular'
-        },
-        'Migraine': {
-            'HR_cat<60': 0.952232, 'HR_cat60-69': 1.0, 'HR_cat70-79': 0.994199,
-            'HR_cat80-89': 1.171267, 'HR_cat>=90': 1.25287,
-            'AGE': 0.986428, 'MALE': 1.0, 'FEMALE': 2.58151, 'BMI': 1.015953,
-            'Never_smoke': 1.0, 'Ever_smoke': 1.182575, 'Now_smoke': 1.386739,
-            'Never_drink': 1.0, 'Ever_drink': 0.763077, 'Now_drink': 0.776311,
-            'category': 'Neurological'
-        },
-        'Parkinson\'s Disease': {
-            'HR_cat<60': 1.241971, 'HR_cat60-69': 1.0, 'HR_cat70-79': 1.440464,
-            'HR_cat80-89': 1.296338, 'HR_cat>=90': 1.759019,
-            'AGE': 1.14334, 'MALE': 1.0, 'FEMALE': 0.525192, 'BMI': 1.031024,
-            'Never_smoke': 1.0, 'Ever_smoke': 0.629942, 'Now_smoke': 0.828633,
-            'Never_drink': 1.0, 'Ever_drink': 1.002674, 'Now_drink': 0.502161,
-            'category': 'Neurological'
-        }
-    }
-    return twb_data
+def load_model_coefficients():
+    """Load the Cox regression model coefficients from the CSV data"""
+    # The CSV data from TWB_model1_sig.csv
+    csv_data = """Daisease namw,Variable,Coef
+Atrial Fibrillation,HR_cat60-69,REF
+Atrial Fibrillation,HR_cat<60,0.245753
+Atrial Fibrillation,HR_cat70-79,0.007172
+Atrial Fibrillation,HR_cat80-89,0.285073
+Atrial Fibrillation,HR_cat>=90,0.626423
+Atrial Fibrillation,AGE,0.092884
+Atrial Fibrillation,MALE,REF
+Atrial Fibrillation,FERMALE,-0.826015
+Atrial Fibrillation,BMI,0.052884
+Atrial Fibrillation,Nerver_smoke,REF
+Atrial Fibrillation,Ever_smoke,0.040906
+Atrial Fibrillation,Now_smoke,-0.22748
+Atrial Fibrillation,Nerver_drink,REF
+Atrial Fibrillation,Ever_drink,0.114189
+Atrial Fibrillation,Now_drink,0.079308
+Anxiety,HR_cat60-69,REF
+Anxiety,HR_cat<60,-0.0147946
+Anxiety,HR_cat70-79,0.0331788
+Anxiety,HR_cat80-89,0.079773
+Anxiety,HR_cat>=90,0.0326789
+Anxiety,AGE,REF
+Anxiety,MALE,0.0221697
+Anxiety,FERMALE,0.5610132
+Anxiety,BMI,-0.0212976
+Anxiety,Nerver_smoke,REF
+Anxiety,Ever_smoke,0.1371077
+Anxiety,Now_smoke,0.1912624
+Anxiety,Nerver_drink,REF
+Anxiety,Ever_drink,0.2342184
+Anxiety,Now_drink,0.145487
+Chronic Kidney Disease,HR_cat60-69,REF
+Chronic Kidney Disease,HR_cat<60,-0.037829
+Chronic Kidney Disease,HR_cat70-79,0.114072
+Chronic Kidney Disease,HR_cat80-89,0.2957
+Chronic Kidney Disease,HR_cat>=90,0.720731
+Chronic Kidney Disease,AGE,0.067726
+Chronic Kidney Disease,MALE,REF
+Chronic Kidney Disease,FERMALE,-0.336082
+Chronic Kidney Disease,BMI,0.081698
+Chronic Kidney Disease,Nerver_smoke,REF
+Chronic Kidney Disease,Ever_smoke,0.034987
+Chronic Kidney Disease,Now_smoke,0.035351
+Chronic Kidney Disease,Nerver_drink,REF
+Chronic Kidney Disease,Ever_drink,0.283053
+Chronic Kidney Disease,Now_drink,-0.097787
+GERD,HR_cat60-69,REF
+GERD,HR_cat<60,0.0173609
+GERD,HR_cat70-79,0.106481
+GERD,HR_cat80-89,0.1243943
+GERD,HR_cat>=90,0.1830798
+GERD,AGE,0.0110515
+GERD,MALE,REF
+GERD,FERMALE,0.1725073
+GERD,BMI,0.0031696
+GERD,Nerver_smoke,REF
+GERD,Ever_smoke,0.1186117
+GERD,Now_smoke,-0.0538687
+GERD,Nerver_drink,REF
+GERD,Ever_drink,0.0527654
+GERD,Now_drink,0.0680244
+Heart Failure,HR_cat60-69,REF
+Heart Failure,HR_cat<60,0.094597
+Heart Failure,HR_cat70-79,0.046528
+Heart Failure,HR_cat80-89,0.281359
+Heart Failure,HR_cat>=90,0.325456
+Heart Failure,AGE,0.077657
+Heart Failure,MALE,REF
+Heart Failure,FERMALE,-0.053006
+Heart Failure,BMI,0.10726
+Heart Failure,Nerver_smoke,REF
+Heart Failure,Ever_smoke,0.152996
+Heart Failure,Now_smoke,0.254233
+Heart Failure,Nerver_drink,REF
+Heart Failure,Ever_drink,0.128193
+Heart Failure,Now_drink,-0.019435
+Myocardial Infarction,HR_cat60-69,REF
+Myocardial Infarction,HR_cat<60,0.266526
+Myocardial Infarction,HR_cat70-79,0.093003
+Myocardial Infarction,HR_cat80-89,0.144828
+Myocardial Infarction,HR_cat>=90,0.145092
+Myocardial Infarction,AGE,0.079069
+Myocardial Infarction,MALE,REF
+Myocardial Infarction,FERMALE,-1.035229
+Myocardial Infarction,BMI,0.088253
+Myocardial Infarction,Nerver_smoke,REF
+Myocardial Infarction,Ever_smoke,0.443004
+Myocardial Infarction,Now_smoke,0.85316
+Myocardial Infarction,Nerver_drink,REF
+Myocardial Infarction,Ever_drink,0.236342
+Myocardial Infarction,Now_drink,-0.37105
+Type 2 Diabetes,HR_cat60-69,REF
+Type 2 Diabetes,HR_cat<60,-0.115098
+Type 2 Diabetes,HR_cat70-79,0.237972
+Type 2 Diabetes,HR_cat80-89,0.504242
+Type 2 Diabetes,HR_cat>=90,0.701339
+Type 2 Diabetes,AGE,0.057474
+Type 2 Diabetes,MALE,REF
+Type 2 Diabetes,FERMALE,0.093901
+Type 2 Diabetes,BMI,0.112338
+Type 2 Diabetes,Nerver_smoke,REF
+Type 2 Diabetes,Ever_smoke,0.135605
+Type 2 Diabetes,Now_smoke,0.18522
+Type 2 Diabetes,Nerver_drink,REF
+Type 2 Diabetes,Ever_drink,0.168757
+Type 2 Diabetes,Now_drink,0.122939
+Anemia,HR_cat60-69,REF
+Anemia,HR_cat<60,-0.0392645
+Anemia,HR_cat70-79,0.0977869
+Anemia,HR_cat80-89,0.1981423
+Anemia,HR_cat>=90,0.0895871
+Anemia,AGE,-0.0061833
+Anemia,MALE,REF
+Anemia,FERMALE,1.1290142
+Anemia,BMI,-0.0073061
+Anemia,Nerver_smoke,REF
+Anemia,Ever_smoke,0.2113872
+Anemia,Now_smoke,-0.0535957
+Anemia,Nerver_drink,REF
+Anemia,Ever_drink,0.1674907
+Anemia,Now_drink,-0.1735583
+Angina Pectoris,HR_cat60-69,REF
+Angina Pectoris,HR_cat<60,0.14336
+Angina Pectoris,HR_cat70-79,-0.072307
+Angina Pectoris,HR_cat80-89,0.031692
+Angina Pectoris,HR_cat>=90,-0.096771
+Angina Pectoris,AGE,0.05689
+Angina Pectoris,MALE,REF
+Angina Pectoris,FERMALE,-0.184188
+Angina Pectoris,BMI,0.055886
+Angina Pectoris,Nerver_smoke,REF
+Angina Pectoris,Ever_smoke,0.204652
+Angina Pectoris,Now_smoke,0.206606
+Angina Pectoris,Nerver_drink,REF
+Angina Pectoris,Ever_drink,0.192616
+Angina Pectoris,Now_drink,-0.005281
+Asthma,HR_cat60-69,REF
+Asthma,HR_cat<60,-0.106883
+Asthma,HR_cat70-79,0.022602
+Asthma,HR_cat80-89,0.053949
+Asthma,HR_cat>=90,0.246947
+Asthma,AGE,0.018771
+Asthma,MALE,REF
+Asthma,FERMALE,0.34897
+Asthma,BMI,0.051065
+Asthma,Nerver_smoke,REF
+Asthma,Ever_smoke,0.180858
+Asthma,Now_smoke,0.158275
+Asthma,Nerver_drink,REF
+Asthma,Ever_drink,0.048924
+Asthma,Now_drink,-0.075188
+Atherosclerosis,HR_cat60-69,REF
+Atherosclerosis,HR_cat<60,0.143407
+Atherosclerosis,HR_cat70-79,-0.046939
+Atherosclerosis,HR_cat80-89,-0.010829
+Atherosclerosis,HR_cat>=90,-0.193343
+Atherosclerosis,AGE,0.076931
+Atherosclerosis,MALE,REF
+Atherosclerosis,FERMALE,-0.474543
+Atherosclerosis,BMI,0.073382
+Atherosclerosis,Nerver_smoke,REF
+Atherosclerosis,Ever_smoke,0.218909
+Atherosclerosis,Now_smoke,0.199181
+Atherosclerosis,Nerver_drink,REF
+Atherosclerosis,Ever_drink,0.250373
+Atherosclerosis,Now_drink,0.049339
+Cardiac Arrhythmia,HR_cat60-69,REF
+Cardiac Arrhythmia,HR_cat<60,0.180933
+Cardiac Arrhythmia,HR_cat70-79,0.067217
+Cardiac Arrhythmia,HR_cat80-89,0.225652
+Cardiac Arrhythmia,HR_cat>=90,0.416275
+Cardiac Arrhythmia,AGE,0.033826
+Cardiac Arrhythmia,MALE,REF
+Cardiac Arrhythmia,FERMALE,0.200422
+Cardiac Arrhythmia,BMI,0.003792
+Cardiac Arrhythmia,Nerver_smoke,REF
+Cardiac Arrhythmia,Ever_smoke,0.062005
+Cardiac Arrhythmia,Now_smoke,-0.058892
+Cardiac Arrhythmia,Nerver_drink,REF
+Cardiac Arrhythmia,Ever_drink,0.152499
+Cardiac Arrhythmia,Now_drink,0.055137
+Depression,HR_cat60-69,REF
+Depression,HR_cat<60,0.1195075
+Depression,HR_cat70-79,0.1140151
+Depression,HR_cat80-89,0.337861
+Depression,HR_cat>=90,0.5705119
+Depression,AGE,0.0123584
+Depression,MALE,REF
+Depression,FERMALE,0.5986412
+Depression,BMI,-0.009728
+Depression,Nerver_smoke,REF
+Depression,Ever_smoke,0.3088563
+Depression,Now_smoke,0.5593592
+Depression,Nerver_drink,REF
+Depression,Ever_drink,0.3865247
+Depression,Now_drink,-0.0006955
+Hypertension,HR_cat60-69,REF
+Hypertension,HR_cat<60,-0.057906
+Hypertension,HR_cat70-79,0.19495
+Hypertension,HR_cat80-89,0.391184
+Hypertension,HR_cat>=90,0.646424
+Hypertension,AGE,0.058602
+Hypertension,MALE,REF
+Hypertension,FERMALE,-0.109502
+Hypertension,BMI,0.115599
+Hypertension,Nerver_smoke,REF
+Hypertension,Ever_smoke,0.046438
+Hypertension,Now_smoke,0.099012
+Hypertension,Nerver_drink,REF
+Hypertension,Ever_drink,0.185565
+Hypertension,Now_drink,0.281362
+Ischemic Heart Disease,HR_cat60-69,REF
+Ischemic Heart Disease,HR_cat<60,0.176283
+Ischemic Heart Disease,HR_cat70-79,0.024369
+Ischemic Heart Disease,HR_cat80-89,-0.016693
+Ischemic Heart Disease,HR_cat>=90,-0.01592
+Ischemic Heart Disease,AGE,0.076265
+Ischemic Heart Disease,MALE,REF
+Ischemic Heart Disease,FERMALE,-0.201685
+Ischemic Heart Disease,BMI,0.072083
+Ischemic Heart Disease,Nerver_smoke,REF
+Ischemic Heart Disease,Ever_smoke,0.110185
+Ischemic Heart Disease,Now_smoke,0.2139
+Ischemic Heart Disease,Nerver_drink,REF
+Ischemic Heart Disease,Ever_drink,0.222689
+Ischemic Heart Disease,Now_drink,-0.11555
+Ischemic Stroke,HR_cat60-69,REF
+Ischemic Stroke,HR_cat<60,0.096548
+Ischemic Stroke,HR_cat70-79,0.27437
+Ischemic Stroke,HR_cat80-89,0.434256
+Ischemic Stroke,HR_cat>=90,0.503506
+Ischemic Stroke,AGE,0.079883
+Ischemic Stroke,MALE,REF
+Ischemic Stroke,FERMALE,-0.182232
+Ischemic Stroke,BMI,0.052259
+Ischemic Stroke,Nerver_smoke,REF
+Ischemic Stroke,Ever_smoke,0.087919
+Ischemic Stroke,Now_smoke,0.408596
+Ischemic Stroke,Nerver_drink,REF
+Ischemic Stroke,Ever_drink,0.261755
+Ischemic Stroke,Now_drink,0.224026
+Migraine,HR_cat60-69,REF
+Migraine,HR_cat<60,-0.048947
+Migraine,HR_cat70-79,-0.005818
+Migraine,HR_cat80-89,0.158086
+Migraine,HR_cat>=90,0.225437
+Migraine,AGE,-0.013665
+Migraine,MALE,REF
+Migraine,FERMALE,0.948374
+Migraine,BMI,0.015827
+Migraine,Nerver_smoke,REF
+Migraine,Ever_smoke,0.167694
+Migraine,Now_smoke,0.326955
+Migraine,Nerver_drink,REF
+Migraine,Ever_drink,-0.270397
+Migraine,Now_drink,-0.253202
+Parkinson's Disease,HR_cat60-69,REF
+Parkinson's Disease,HR_cat<60,0.2167
+Parkinson's Disease,HR_cat70-79,0.364965
+Parkinson's Disease,HR_cat80-89,0.259543
+Parkinson's Disease,HR_cat>=90,0.564756
+Parkinson's Disease,AGE,0.133954
+Parkinson's Disease,MALE,REF
+Parkinson's Disease,FERMALE,-0.643991
+Parkinson's Disease,BMI,0.030553
+Parkinson's Disease,Nerver_smoke,REF
+Parkinson's Disease,Ever_smoke,-0.462127
+Parkinson's Disease,Now_smoke,-0.187978
+Parkinson's Disease,Nerver_drink,REF
+Parkinson's Disease,Ever_drink,0.002671
+Parkinson's Disease,Now_drink,-0.688835"""
+    
+    from io import StringIO
+    df = pd.read_csv(StringIO(csv_data))
+    
+    # Clean up the disease name column (there's a typo in the original)
+    df.columns = ['Disease_Name', 'Variable', 'Coef']
+    
+    return df
 
-def get_hr_category(heart_rate):
-    """Determine heart rate category based on bpm"""
-    if heart_rate < 60:
+def get_heart_rate_category(hr):
+    """Categorize heart rate according to the model categories"""
+    if hr < 60:
         return 'HR_cat<60'
-    elif heart_rate <= 69:
+    elif 60 <= hr < 70:
         return 'HR_cat60-69'
-    elif heart_rate <= 79:
+    elif 70 <= hr < 80:
         return 'HR_cat70-79'
-    elif heart_rate <= 89:
+    elif 80 <= hr < 90:
         return 'HR_cat80-89'
     else:
         return 'HR_cat>=90'
 
-def calculate_comprehensive_risk(disease_data, age, gender, bmi, heart_rate, smoking_status, alcohol_status):
-    """Calculate comprehensive risk using all TWB model factors"""
-    # Start with baseline risk
-    risk = 1.0
+def calculate_cox_hazard_ratio(disease_name, age, gender, hr, bmi, smoking_status, drinking_status, model_df):
+    """
+    Calculate hazard ratio using Cox regression coefficients
+    Following the algorithm: HR = exp(linear predictor)
+    """
+    try:
+        # Filter coefficients for this disease
+        disease_coefs = model_df[model_df['Disease_Name'] == disease_name].copy()
+        
+        if disease_coefs.empty:
+            return None
+        
+        # Initialize linear predictor
+        lp = 0.0
+        
+        # Heart Rate Category (reference is HR_cat60-69)
+        hr_cat = get_heart_rate_category(hr)
+        hr_coef = disease_coefs[disease_coefs['Variable'] == hr_cat]
+        if not hr_coef.empty and hr_coef.iloc[0]['Coef'] != 'REF':
+            lp += float(hr_coef.iloc[0]['Coef'])
+        
+        # Age (continuous variable)
+        age_coef = disease_coefs[disease_coefs['Variable'] == 'AGE']
+        if not age_coef.empty and age_coef.iloc[0]['Coef'] != 'REF':
+            lp += float(age_coef.iloc[0]['Coef']) * age
+        
+        # Gender (reference is MALE)
+        if gender == 'Female':
+            gender_coef = disease_coefs[disease_coefs['Variable'] == 'FERMALE']
+            if not gender_coef.empty and gender_coef.iloc[0]['Coef'] != 'REF':
+                lp += float(gender_coef.iloc[0]['Coef'])
+        
+        # BMI (continuous variable)
+        bmi_coef = disease_coefs[disease_coefs['Variable'] == 'BMI']
+        if not bmi_coef.empty and bmi_coef.iloc[0]['Coef'] != 'REF':
+            lp += float(bmi_coef.iloc[0]['Coef']) * bmi
+        
+        # Smoking Status (reference is Never_smoke)
+        if smoking_status == 'Former Smoker':
+            smoke_coef = disease_coefs[disease_coefs['Variable'] == 'Ever_smoke']
+            if not smoke_coef.empty and smoke_coef.iloc[0]['Coef'] != 'REF':
+                lp += float(smoke_coef.iloc[0]['Coef'])
+        elif smoking_status == 'Current Smoker':
+            smoke_coef = disease_coefs[disease_coefs['Variable'] == 'Now_smoke']
+            if not smoke_coef.empty and smoke_coef.iloc[0]['Coef'] != 'REF':
+                lp += float(smoke_coef.iloc[0]['Coef'])
+        
+        # Drinking Status (reference is Never_drink)
+        if drinking_status == 'Former Drinker':
+            drink_coef = disease_coefs[disease_coefs['Variable'] == 'Ever_drink']
+            if not drink_coef.empty and drink_coef.iloc[0]['Coef'] != 'REF':
+                lp += float(drink_coef.iloc[0]['Coef'])
+        elif drinking_status == 'Current Drinker':
+            drink_coef = disease_coefs[disease_coefs['Variable'] == 'Now_drink']
+            if not drink_coef.empty and drink_coef.iloc[0]['Coef'] != 'REF':
+                lp += float(drink_coef.iloc[0]['Coef'])
+        
+        # Calculate hazard ratio
+        hazard_ratio = math.exp(lp)
+        return hazard_ratio
     
-    # Heart rate category
-    hr_category = get_hr_category(heart_rate)
-    risk *= disease_data.get(hr_category, 1.0)
-    
-    # Age (continuous variable - risk per year)
-    risk *= disease_data.get('AGE', 1.0) ** age
-    
-    # Gender
-    if gender == 'Female':
-        risk *= disease_data.get('FEMALE', 1.0)
-    # Male is baseline (1.0), so no multiplication needed
-    
-    # BMI (continuous variable - risk per BMI unit)
-    risk *= disease_data.get('BMI', 1.0) ** bmi
-    
-    # Smoking status
-    if smoking_status == 'Current Smoker':
-        risk *= disease_data.get('Now_smoke', 1.0)
-    elif smoking_status == 'Former Smoker':
-        risk *= disease_data.get('Ever_smoke', 1.0)
-    # Never smoker is baseline (1.0)
-    
-    # Alcohol status
-    if alcohol_status == 'Current Drinker':
-        risk *= disease_data.get('Now_drink', 1.0)
-    elif alcohol_status == 'Former Drinker':
-        risk *= disease_data.get('Ever_drink', 1.0)
-    # Never drinker is baseline (1.0)
-    
-    return risk
+    except Exception as e:
+        st.error(f"Error calculating hazard ratio for {disease_name}: {str(e)}")
+        return None
 
-def get_risk_color(risk_ratio):
-    """Get color based on risk level"""
-    if risk_ratio < 1.1:
+def calculate_benchmark_comparison(disease_name, user_age, user_gender, user_hr, user_bmi, 
+                                 user_smoking, user_drinking, model_df):
+    """
+    Calculate user's risk relative to a benchmark person
+    Benchmark: Age=40, Male, HR=65 (60-69 category), BMI=22, Never smoker, Never drinker
+    """
+    # Define benchmark person
+    benchmark_age = 40
+    benchmark_gender = 'Male'
+    benchmark_hr = 65  # Falls in HR_cat60-69
+    benchmark_bmi = 22.0
+    benchmark_smoking = 'Never Smoker'
+    benchmark_drinking = 'Never Drinker'
+    
+    # Calculate benchmark person's hazard ratio
+    benchmark_hr_ratio = calculate_cox_hazard_ratio(
+        disease_name, benchmark_age, benchmark_gender, benchmark_hr, 
+        benchmark_bmi, benchmark_smoking, benchmark_drinking, model_df
+    )
+    
+    # Calculate user's hazard ratio
+    user_hr_ratio = calculate_cox_hazard_ratio(
+        disease_name, user_age, user_gender, user_hr, 
+        user_bmi, user_smoking, user_drinking, model_df
+    )
+    
+    # Return relative risk compared to benchmark
+    if benchmark_hr_ratio is not None and user_hr_ratio is not None and benchmark_hr_ratio != 0:
+        return user_hr_ratio / benchmark_hr_ratio
+    else:
+        return None
+
+def get_risk_color(relative_risk):
+    """Get color based on relative risk compared to benchmark"""
+    if relative_risk < 1.1:
         return "#27ae60"  # Green
-    elif risk_ratio < 1.5:
+    elif relative_risk < 1.3:
         return "#f39c12"  # Orange
-    elif risk_ratio < 2.0:
-        return "#e67e22"  # Dark Orange
     else:
         return "#e74c3c"  # Red
 
-def get_risk_level(risk_ratio):
-    """Get risk level description"""
-    if risk_ratio < 1.1:
-        return "Low Risk"
-    elif risk_ratio < 1.5:
+def get_risk_level(relative_risk):
+    """Get risk level description compared to benchmark"""
+    if relative_risk < 1.1:
+        return "Similar Risk"
+    elif relative_risk < 1.3:
         return "Moderate Risk"
-    elif risk_ratio < 2.0:
+    else:
         return "High Risk"
-    else:
-        return "Very High Risk"
 
-def calculate_bmi(weight_kg, height_cm):
-    """Calculate BMI from weight and height"""
-    height_m = height_cm / 100
-    return weight_kg / (height_m ** 2)
-
-def get_bmi_category(bmi):
-    """Get BMI category"""
-    if bmi < 18.5:
-        return "Underweight"
-    elif bmi < 25:
-        return "Normal"
-    elif bmi < 30:
-        return "Overweight"
+def categorize_diseases(disease_name):
+    """Categorize diseases for filtering"""
+    cardiovascular_diseases = [
+        'Atrial Fibrillation', 'Heart Failure', 'Myocardial Infarction', 
+        'Cardiac Arrhythmia', 'Ischemic Heart Disease', 'Angina Pectoris', 
+        'Atherosclerosis', 'Hypertension', 'Ischemic Stroke'
+    ]
+    
+    metabolic_diseases = [
+        'Type 2 Diabetes', 'Chronic Kidney Disease'
+    ]
+    
+    mental_health = [
+        'Anxiety', 'Depression'
+    ]
+    
+    other_conditions = [
+        'GERD', 'Anemia', 'Asthma', 'Migraine', "Parkinson's Disease"
+    ]
+    
+    if disease_name in cardiovascular_diseases:
+        return 'Cardiovascular'
+    elif disease_name in metabolic_diseases:
+        return 'Metabolic'
+    elif disease_name in mental_health:
+        return 'Mental Health'
     else:
-        return "Obese"
+        return 'Other Conditions'
 
 def main():
-    # Load TWB data
-    twb_data = load_twb_data()
+    # Load model coefficients
+    model_df = load_model_coefficients()
+    
+    # Get unique diseases
+    diseases = model_df['Disease_Name'].unique().tolist()
     
     # Header
-    st.markdown('<h1 class="main-header">❤️ Comprehensive Health Risk Calculator</h1>', unsafe_allow_html=True)
-    st.markdown('<p class="sub-header">Personalized disease risk assessment using Taiwan Biobank model</p>', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-header">❤️ Heart Rate Risk Calculator</h1>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-header">Assess your disease risk based on Cox regression model results</p>', unsafe_allow_html=True)
     
     # Sidebar for inputs
     with st.sidebar:
-        st.markdown("### 👤 Personal Information")
+        st.markdown("### 📊 Input Parameters")
         
-        # Basic demographics
-        age = st.slider("Age", 20, 90, 50, help="Your current age in years")
+        # Personal information
+        age = st.slider("Age", 20, 90, 65, help="Your current age")
         gender = st.selectbox("Gender", ["Male", "Female"], help="Biological sex")
-        
-        # BMI calculation
-        st.markdown("#### 📏 Body Measurements")
-        col1, col2 = st.columns(2)
-        with col1:
-            weight = st.number_input("Weight (kg)", min_value=30.0, max_value=200.0, value=70.0, step=0.5)
-        with col2:
-            height = st.number_input("Height (cm)", min_value=120.0, max_value=220.0, value=170.0, step=0.5)
-        
-        bmi = calculate_bmi(weight, height)
-        bmi_category = get_bmi_category(bmi)
-        st.info(f"📊 BMI: {bmi:.1f} ({bmi_category})")
+        bmi = st.slider("BMI", 15.0, 40.0, 24.0, step=0.1, help="Body Mass Index")
         
         # Heart rate
         st.markdown("### 💓 Heart Rate Information")
-        heart_rate = st.slider(
-            "Resting Heart Rate (bpm)", 
+        current_hr = st.slider(
+            "Current Resting Heart Rate (bpm)", 
             40, 120, 72, 
-            help="Your resting heart rate in beats per minute"
+            help="Your current resting heart rate in beats per minute"
         )
         
-        hr_category = get_hr_category(heart_rate)
-        category_display = {
-            'HR_cat<60': '<60 bpm (Bradycardia)',
-            'HR_cat60-69': '60-69 bpm (Normal)',
-            'HR_cat70-79': '70-79 bpm (Normal)',
-            'HR_cat80-89': '80-89 bpm (Upper Normal)',
-            'HR_cat>=90': '≥90 bpm (Tachycardia)'
-        }
-        st.info(f"📊 HR Category: {category_display[hr_category]}")
-        
         # Lifestyle factors
-        st.markdown("### 🚬 Smoking Status")
+        st.markdown("### 🚬 Lifestyle Factors")
         smoking_status = st.selectbox(
-            "Smoking History",
+            "Smoking Status", 
             ["Never Smoker", "Former Smoker", "Current Smoker"],
             help="Your smoking history"
         )
         
-        st.markdown("### 🍷 Alcohol Consumption")
-        alcohol_status = st.selectbox(
-            "Alcohol History",
+        drinking_status = st.selectbox(
+            "Drinking Status",
             ["Never Drinker", "Former Drinker", "Current Drinker"],
             help="Your alcohol consumption history"
         )
         
-        # Risk category filter
-        st.markdown("### 🔍 Disease Categories")
-        available_categories = list(set([data['category'] for data in twb_data.values()]))
+        # Disease category filter
+        st.markdown("### 🔍 Filter by Category")
+        all_categories = ['Cardiovascular', 'Metabolic', 'Mental Health', 'Other Conditions']
         selected_categories = st.multiselect(
-            "Select categories to display:",
-            available_categories,
-            default=available_categories
+            "Select disease categories to display:",
+            all_categories,
+            default=all_categories
         )
     
     # Main content area
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        st.markdown("### 📈 Comprehensive Risk Assessment")
+        st.markdown("### 📈 Disease Risk Assessment Results")
         
-        # Calculate comprehensive risks
-        risks = {}
-        filtered_diseases = [disease for disease, data in twb_data.items() 
-                           if data['category'] in selected_categories]
+        # Calculate relative risks compared to benchmark for all diseases
+        relative_risks = {}
+        filtered_diseases = []
         
-        for disease in filtered_diseases:
-            disease_data = twb_data[disease]
-            risk = calculate_comprehensive_risk(
-                disease_data, age, gender, bmi, heart_rate, 
-                smoking_status, alcohol_status
-            )
-            risks[disease] = risk
+        for disease in diseases:
+            category = categorize_diseases(disease)
+            if category in selected_categories:
+                filtered_diseases.append(disease)
+                rel_risk = calculate_benchmark_comparison(
+                    disease, age, gender, current_hr, bmi, 
+                    smoking_status, drinking_status, model_df
+                )
+                if rel_risk is not None:
+                    relative_risks[disease] = rel_risk
         
-        if risks:
+        if relative_risks:
             # Create risk visualization
-            diseases = list(risks.keys())
-            risk_values = list(risks.values())
+            diseases_list = list(relative_risks.keys())
+            risk_values = list(relative_risks.values())
             colors = [get_risk_color(risk) for risk in risk_values]
             
-            # Sort by risk level for better visualization
-            sorted_data = sorted(zip(diseases, risk_values, colors), key=lambda x: x[1], reverse=True)
-            diseases, risk_values, colors = zip(*sorted_data)
+            # Sort by relative risk for better visualization
+            sorted_data = sorted(zip(diseases_list, risk_values, colors), key=lambda x: x[1], reverse=True)
+            diseases_sorted, risks_sorted, colors_sorted = zip(*sorted_data)
             
             # Bar chart
             fig = go.Figure(data=[
                 go.Bar(
-                    y=diseases,
-                    x=risk_values,
-                    marker_color=colors,
-                    text=[f"{risk:.2f}x" for risk in risk_values],
+                    y=diseases_sorted,
+                    x=risks_sorted,
+                    orientation='h',
+                    marker_color=colors_sorted,
+                    text=[f"{risk:.2f}x" for risk in risks_sorted],
                     textposition='auto',
-                    hovertemplate='<b>%{y}</b><br>Risk Ratio: %{x:.2f}x<extra></extra>',
-                    orientation='h'
+                    hovertemplate='<b>%{y}</b><br>Relative Risk: %{x:.2f}x vs benchmark<extra></extra>'
                 )
             ])
             
             fig.update_layout(
-                title="Personalized Disease Risk Assessment",
-                xaxis_title="Risk Ratio (vs. Baseline Population)",
-                yaxis_title="Disease",
-                height=max(500, len(diseases) * 25),
+                title="Your Risk vs Healthy Benchmark Person",
+                xaxis_title="Relative Risk (vs Benchmark Person)",
+                yaxis_title="Diseases",
+                height=max(400, len(diseases_list) * 25),
                 showlegend=False,
                 plot_bgcolor='rgba(0,0,0,0)',
                 paper_bgcolor='rgba(0,0,0,0)',
-                font=dict(size=10),
-                margin=dict(l=200, r=50, t=80, b=50)
+                font=dict(size=10)
             )
             
             fig.add_vline(x=1.0, line_dash="dash", line_color="gray", 
-                         annotation_text="Population Baseline (1.0)", annotation_position="top")
+                         annotation_text="Same as Benchmark (1.0x)", annotation_position="top")
             
             st.plotly_chart(fig, use_container_width=True)
             
             # Risk level indicators
             st.markdown("### 🎯 Risk Level Summary")
-            cols = st.columns(4)
+            cols = st.columns(3)
             
-            very_high_risk = sum(1 for risk in risk_values if risk >= 2.0)
-            high_risk = sum(1 for risk in risk_values if 1.5 <= risk < 2.0)
-            moderate_risk = sum(1 for risk in risk_values if 1.1 <= risk < 1.5)
-            low_risk = sum(1 for risk in risk_values if risk < 1.1)
+            high_risk = sum(1 for risk in risk_values if risk >= 1.3)
+            moderate_risk = sum(1 for risk in risk_values if 1.1 <= risk < 1.3)
+            similar_risk = sum(1 for risk in risk_values if risk < 1.1)
             
             with cols[0]:
-                st.metric("🔴 Very High Risk", very_high_risk)
+                st.metric("🔴 High Risk vs Benchmark", high_risk)
             with cols[1]:
-                st.metric("🟠 High Risk", high_risk)
+                st.metric("🟡 Moderate Risk vs Benchmark", moderate_risk)
             with cols[2]:
-                st.metric("🟡 Moderate Risk", moderate_risk)
-            with cols[3]:
-                st.metric("🟢 Low Risk", low_risk)
+                st.metric("🟢 Similar Risk to Benchmark", similar_risk)
         else:
-            st.warning("Please select at least one category to view results.")
+            st.warning("No valid risk comparisons calculated. Please check your input parameters.")
     
     with col2:
-        st.markdown("### 💡 Personal Profile")
+        st.markdown("### 💡 Heart Rate Status")
         
-        # Personal summary
+        # Heart rate category display
+        hr_category = get_heart_rate_category(current_hr)
+        category_display = {
+            'HR_cat<60': '< 60 bpm (Bradycardia)',
+            'HR_cat60-69': '60-69 bpm (Normal)',
+            'HR_cat70-79': '70-79 bpm (Normal-High)',
+            'HR_cat80-89': '80-89 bpm (Elevated)',
+            'HR_cat>=90': '≥ 90 bpm (High)'
+        }
+        
         st.markdown(f"""
         <div class="info-box">
-            <h4>👤 Your Profile</h4>
-            <p><strong>Age:</strong> {age} years</p>
-            <p><strong>Gender:</strong> {gender}</p>
-            <p><strong>BMI:</strong> {bmi:.1f} ({bmi_category})</p>
-            <p><strong>Heart Rate:</strong> {heart_rate} bpm</p>
-            <p><strong>Smoking:</strong> {smoking_status}</p>
-            <p><strong>Alcohol:</strong> {alcohol_status}</p>
+            <h4>📊 Your Heart Rate Category</h4>
+            <p><strong>{current_hr} bpm</strong></p>
+            <p>{category_display.get(hr_category, hr_category)}</p>
         </div>
         """, unsafe_allow_html=True)
         
-        # Risk factor analysis
-        st.markdown("### ⚡ Risk Factor Impact")
+        # Model information
+        st.markdown("### 📚 Model Information")
+        st.markdown("""
+        <div class="info-box">
+            <strong>Benchmark Person:</strong><br>
+            • Age: 40 years<br>
+            • Gender: Male<br>
+            • BMI: 22.0<br>
+            • Heart Rate: 65 bpm (60-69 range)<br>
+            • Smoking: Never smoker<br>
+            • Drinking: Never drinker<br><br>
+            <em>Your risk is compared to this healthy baseline individual.</em>
+        </div>
+        """, unsafe_allow_html=True)
         
-        # Calculate individual factor contributions for top disease
-        if risks:
-            top_disease = max(risks.items(), key=lambda x: x[1])
-            disease_name, total_risk = top_disease
-            disease_data = twb_data[disease_name]
-            
-            st.markdown(f"**Analysis for: {disease_name}**")
-            
-            # Individual factor contributions
-            factors = []
-            
-            # Heart Rate
-            hr_risk = disease_data.get(get_hr_category(heart_rate), 1.0)
-            factors.append(("Heart Rate", hr_risk, f"{category_display[get_hr_category(heart_rate)]}"))
-            
-            # Age
-            age_risk = disease_data.get('AGE', 1.0) ** age
-            factors.append(("Age", age_risk, f"{age} years"))
-            
-            # Gender
-            gender_risk = disease_data.get('FEMALE', 1.0) if gender == 'Female' else 1.0
-            factors.append(("Gender", gender_risk, gender))
-            
-            # BMI
-            bmi_risk = disease_data.get('BMI', 1.0) ** bmi
-            factors.append(("BMI", bmi_risk, f"{bmi:.1f}"))
-            
-            # Smoking
-            smoke_risk = 1.0
-            if smoking_status == 'Current Smoker':
-                smoke_risk = disease_data.get('Now_smoke', 1.0)
-            elif smoking_status == 'Former Smoker':
-                smoke_risk = disease_data.get('Ever_smoke', 1.0)
-            factors.append(("Smoking", smoke_risk, smoking_status))
-            
-            # Alcohol
-            alcohol_risk = 1.0
-            if alcohol_status == 'Current Drinker':
-                alcohol_risk = disease_data.get('Now_drink', 1.0)
-            elif alcohol_status == 'Former Drinker':
-                alcohol_risk = disease_data.get('Ever_drink', 1.0)
-            factors.append(("Alcohol", alcohol_risk, alcohol_status))
-            
-            # Sort factors by impact
-            factors.sort(key=lambda x: abs(x[1] - 1.0), reverse=True)
-            
-            for factor_name, factor_risk, factor_value in factors:
-                if abs(factor_risk - 1.0) > 0.05:  # Only show significant factors
-                    impact = "Increases" if factor_risk > 1.0 else "Decreases"
-                    color = "#e74c3c" if factor_risk > 1.0 else "#27ae60"
-                    st.markdown(f"""
-                    <div style="background: {color}20; border-left: 4px solid {color}; padding: 0.5rem; margin: 0.3rem 0; border-radius: 5px;">
-                        <strong>{factor_name}:</strong> {factor_risk:.2f}x<br>
-                        <small>{factor_value} - {impact} risk</small>
-                    </div>
-                    """, unsafe_allow_html=True)
-        
-        # Health recommendations
-        st.markdown("### 💊 Health Recommendations")
-        
-        recommendations = []
-        
-        # BMI recommendations
-        if bmi >= 30:
-            recommendations.append("🏃‍♂️ Consider weight management - obesity significantly increases disease risk")
-        elif bmi >= 25:
-            recommendations.append("⚖️ Maintain healthy weight - slight weight reduction may help")
-        
-        # Heart rate recommendations
-        if heart_rate >= 90:
-            recommendations.append("💓 High resting heart rate - consider cardiovascular evaluation")
-        elif heart_rate >= 80:
-            recommendations.append("🏃‍♀️ Regular exercise may help lower resting heart rate")
-        
-        # Smoking recommendations
-        if smoking_status == 'Current Smoker':
-            recommendations.append("🚭 Smoking cessation is the most impactful change you can make")
-        elif smoking_status == 'Former Smoker':
-            recommendations.append("✅ Great job quitting smoking - continue to avoid tobacco")
-        
-        # Alcohol recommendations
-        if alcohol_status == 'Current Drinker':
-            recommendations.append("🍷 Consider moderating alcohol consumption")
-        
-        # Age-related recommendations
-        if age >= 65:
-            recommendations.append("👴 Regular health screenings become increasingly important with age")
-        
-        for rec in recommendations:
-            st.markdown(f"""
-            <div class="factor-box">
-                {rec}
-            </div>
-            """, unsafe_allow_html=True)
+        # Personal profile summary
+        st.markdown("### 👤 Your Profile")
+        st.markdown(f"""
+        <div class="info-box">
+            <strong>Personal Details:</strong><br>
+            • Age: {age} years<br>
+            • Gender: {gender}<br>
+            • BMI: {bmi:.1f}<br>
+            • Smoking: {smoking_status}<br>
+            • Drinking: {drinking_status}
+        </div>
+        """, unsafe_allow_html=True)
     
-    if risks:
-        # Detailed risk breakdown table
+    # Detailed risk breakdown
+    if relative_risks:
         st.markdown("### 📋 Detailed Risk Analysis")
         
+        # Create detailed table with categories
         risk_df = pd.DataFrame({
-            'Disease': list(risks.keys()),
-            'Category': [twb_data[disease]['category'] for disease in risks.keys()],
-            'Risk Ratio': [f"{risk:.3f}x" for risk in risks.values()],
-            'Risk Level': [get_risk_level(risk) for risk in risks.values()],
-            'Population Baseline': ['1.000x'] * len(risks)
+            'Disease': list(relative_risks.keys()),
+            'Category': [categorize_diseases(disease) for disease in relative_risks.keys()],
+            'Relative Risk vs Benchmark': [f"{risk:.3f}x" for risk in relative_risks.values()],
+            'Risk Level': [get_risk_level(risk) for risk in relative_risks.values()],
+            'Risk Interpretation': [
+                f"{((risk-1)*100):+.1f}% vs benchmark person" if risk != 1.0 else "Same as benchmark"
+                for risk in relative_risks.values()
+            ]
         })
+        
+        # Sort by relative risk
+        risk_df = risk_df.sort_values('Relative Risk vs Benchmark', ascending=False, 
+                                    key=lambda x: x.str.replace('x', '').astype(float))
         
         # Color code the table
         def style_risk_level(val):
-            if val == "Very High Risk":
-                return 'background-color: #ffcdd2; color: #b71c1c'
-            elif val == "High Risk":
-                return 'background-color: #ffecb3; color: #e65100'
+            if val == "High Risk":
+                return 'background-color: #ffebee; color: #c62828'
             elif val == "Moderate Risk":
                 return 'background-color: #fff3e0; color: #ef6c00'
             else:
                 return 'background-color: #e8f5e8; color: #2e7d32'
         
         styled_df = risk_df.style.applymap(style_risk_level, subset=['Risk Level'])
-        st.dataframe(styled_df, use_container_width=True)
+        st.dataframe(styled_df, use_container_width=True, hide_index=True)
         
-        # Factor contribution analysis
-        st.markdown("### 📊 Risk Factor Contribution Analysis")
+        # Heart rate sensitivity analysis
+        st.markdown("### 📊 Heart Rate Sensitivity Analysis")
         
-        # Select diseases for detailed analysis
-        analysis_diseases = st.multiselect(
-            "Select diseases for detailed factor analysis:",
-            list(risks.keys()),
-            default=list(risks.keys())[:3] if len(risks) >= 3 else list(risks.keys()),
-            key="analysis_diseases"
-        )
+        # Select top 5 diseases with highest relative risks for trend analysis
+        top_diseases = sorted(relative_risks.items(), key=lambda x: x[1], reverse=True)[:6]
         
-        if analysis_diseases:
-            # Create factor contribution chart
-            fig_factors = make_subplots(
-                rows=len(analysis_diseases),
-                cols=1,
-                subplot_titles=analysis_diseases,
-                vertical_spacing=0.1
+        if len(top_diseases) > 0:
+            hr_range = np.arange(50, 101, 5)
+            
+            # Calculate trends for top diseases
+            fig_trend = make_subplots(
+                rows=2, cols=3,
+                subplot_titles=[disease for disease, _ in top_diseases],
+                vertical_spacing=0.15,
+                horizontal_spacing=0.12
             )
             
-            for i, disease in enumerate(analysis_diseases, 1):
-                disease_data = twb_data[disease]
+            for i, (disease, _) in enumerate(top_diseases):
+                row = (i // 3) + 1
+                col = (i % 3) + 1
                 
-                # Calculate individual factors
-                factor_names = []
-                factor_values = []
-                factor_colors = []
-                
-                # Heart Rate
-                hr_risk = disease_data.get(get_hr_category(heart_rate), 1.0)
-                factor_names.append("Heart Rate")
-                factor_values.append(hr_risk)
-                factor_colors.append(get_risk_color(hr_risk))
-                
-                # Age (normalized to show per-decade impact)
-                age_risk_per_decade = disease_data.get('AGE', 1.0) ** 10
-                factor_names.append("Age (per 10y)")
-                factor_values.append(age_risk_per_decade)
-                factor_colors.append(get_risk_color(age_risk_per_decade))
-                
-                # Gender
-                gender_risk = disease_data.get('FEMALE', 1.0) if gender == 'Female' else 1.0
-                factor_names.append("Gender")
-                factor_values.append(gender_risk)
-                factor_colors.append(get_risk_color(gender_risk))
-                
-                # BMI (per 5-point increase)
-                bmi_risk_per_5 = disease_data.get('BMI', 1.0) ** 5
-                factor_names.append("BMI (per 5 pts)")
-                factor_values.append(bmi_risk_per_5)
-                factor_colors.append(get_risk_color(bmi_risk_per_5))
-                
-                # Smoking vs Never
-                smoke_risk = 1.0
-                smoke_label = "Smoking"
-                if smoking_status == 'Current Smoker':
-                    smoke_risk = disease_data.get('Now_smoke', 1.0)
-                    smoke_label = "Current Smoking"
-                elif smoking_status == 'Former Smoker':
-                    smoke_risk = disease_data.get('Ever_smoke', 1.0)
-                    smoke_label = "Former Smoking"
-                else:
-                    smoke_label = "Never Smoking"
-                
-                factor_names.append(smoke_label)
-                factor_values.append(smoke_risk)
-                factor_colors.append(get_risk_color(smoke_risk))
-                
-                # Alcohol vs Never
-                alcohol_risk = 1.0
-                alcohol_label = "Alcohol"
-                if alcohol_status == 'Current Drinker':
-                    alcohol_risk = disease_data.get('Now_drink', 1.0)
-                    alcohol_label = "Current Drinking"
-                elif alcohol_status == 'Former Drinker':
-                    alcohol_risk = disease_data.get('Ever_drink', 1.0)
-                    alcohol_label = "Former Drinking"
-                else:
-                    alcohol_label = "Never Drinking"
-                
-                factor_names.append(alcohol_label)
-                factor_values.append(alcohol_risk)
-                factor_colors.append(get_risk_color(alcohol_risk))
-                
-                # Add horizontal bar chart for each disease
-                fig_factors.add_trace(
-                    go.Bar(
-                        x=factor_values,
-                        y=factor_names,
-                        orientation='h',
-                        marker_color=factor_colors,
-                        text=[f"{val:.2f}x" for val in factor_values],
-                        textposition='auto',
-                        showlegend=False,
-                        hovertemplate='<b>%{y}</b><br>Risk Factor: %{x:.2f}x<extra></extra>'
-                    ),
-                    row=i, col=1
-                )
-                
-                # Add baseline line
-                fig_factors.add_vline(
-                    x=1.0,
-                    line_dash="dash",
-                    line_color="gray",
-                    opacity=0.7,
-                    row=i, col=1
-                )
-            
-            fig_factors.update_layout(
-                height=300 * len(analysis_diseases),
-                title_text="Risk Factor Contributions by Disease",
-                showlegend=False
-            )
-            
-            # Update x-axes
-            for i in range(len(analysis_diseases)):
-                fig_factors.update_xaxes(title_text="Risk Factor Value", row=i+1, col=1)
-            
-            st.plotly_chart(fig_factors, use_container_width=True)
-        
-        # Scenario analysis
-        st.markdown("### 🔮 What-If Scenario Analysis")
-        
-        with st.expander("🔍 Explore Different Scenarios"):
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.markdown("**Scenario Parameters:**")
-                scenario_hr = st.slider("Scenario Heart Rate", 50, 100, heart_rate, key="scenario_hr")
-                scenario_bmi = st.slider("Scenario BMI", 18.0, 35.0, bmi, key="scenario_bmi")
-                scenario_smoking = st.selectbox("Scenario Smoking", 
-                                              ["Never Smoker", "Former Smoker", "Current Smoker"], 
-                                              index=["Never Smoker", "Former Smoker", "Current Smoker"].index(smoking_status),
-                                              key="scenario_smoking")
-            
-            with col2:
-                st.markdown("**Impact Analysis:**")
-                
-                # Calculate scenario risks for top 3 diseases
-                top_3_diseases = sorted(risks.items(), key=lambda x: x[1], reverse=True)[:3]
-                
-                for disease_name, current_risk in top_3_diseases:
-                    disease_data = twb_data[disease_name]
-                    scenario_risk = calculate_comprehensive_risk(
-                        disease_data, age, gender, scenario_bmi, scenario_hr,
-                        scenario_smoking, alcohol_status
+                trend_risks = []
+                for test_hr in hr_range:
+                    rel_risk = calculate_benchmark_comparison(
+                        disease, age, gender, test_hr, bmi, 
+                        smoking_status, drinking_status, model_df
                     )
-                    
-                    change = scenario_risk / current_risk
-                    change_text = f"{change:.2f}x"
-                    change_color = "#e74c3c" if change > 1 else "#27ae60"
-                    arrow = "↑" if change > 1 else "↓"
-                    
-                    st.markdown(f"""
-                    <div style="background: {change_color}20; border-left: 4px solid {change_color}; padding: 0.5rem; margin: 0.3rem 0; border-radius: 5px;">
-                        <strong>{disease_name}:</strong><br>
-                        Current: {current_risk:.2f}x → Scenario: {scenario_risk:.2f}x<br>
-                        <span style="color: {change_color};">{arrow} Change: {change_text}</span>
-                    </div>
-                    """, unsafe_allow_html=True)
-        
-        # Risk timeline (age progression)
-        st.markdown("### 📅 Risk Progression with Age")
-        
-        # Select disease for age analysis
-        age_analysis_disease = st.selectbox(
-            "Select disease for age progression analysis:",
-            list(risks.keys()),
-            key="age_analysis"
-        )
-        
-        if age_analysis_disease:
-            # Calculate risks for different ages
-            ages = list(range(max(20, age-20), min(90, age+30), 5))
-            age_risks = []
-            
-            disease_data = twb_data[age_analysis_disease]
-            for analysis_age in ages:
-                age_risk = calculate_comprehensive_risk(
-                    disease_data, analysis_age, gender, bmi, heart_rate,
-                    smoking_status, alcohol_status
+                    trend_risks.append(rel_risk if rel_risk is not None else 1.0)
+                
+                # Add baseline reference line
+                fig_trend.add_hline(
+                    y=1.0, 
+                    line_dash="dash", 
+                    line_color="gray", 
+                    opacity=0.5,
+                    row=row, col=col
                 )
-                age_risks.append(age_risk)
+                
+                # Main trend line
+                fig_trend.add_trace(
+                    go.Scatter(
+                        x=hr_range, 
+                        y=trend_risks,
+                        mode='lines+markers',
+                        name=disease,
+                        line=dict(width=3),
+                        marker=dict(size=4),
+                        showlegend=False
+                    ),
+                    row=row, col=col
+                )
+                
+                # Add current point
+                current_risk = relative_risks[disease]
+                fig_trend.add_trace(
+                    go.Scatter(
+                        x=[current_hr], 
+                        y=[current_risk],
+                        mode='markers',
+                        name=f"Your Risk",
+                        marker=dict(size=12, color='red', symbol='star'),
+                        showlegend=False,
+                        hovertemplate=f'<b>{disease}</b><br>HR: {current_hr} bpm<br>Relative Risk: {current_risk:.2f}x<extra></extra>'
+                    ),
+                    row=row, col=col
+                )
             
-            # Create age progression chart
-            fig_age = go.Figure()
-            
-            fig_age.add_trace(go.Scatter(
-                x=ages,
-                y=age_risks,
-                mode='lines+markers',
-                name=age_analysis_disease,
-                line=dict(width=3, color='#3498db'),
-                marker=dict(size=8)
-            ))
-            
-            # Highlight current age
-            current_risk_for_age = calculate_comprehensive_risk(
-                disease_data, age, gender, bmi, heart_rate,
-                smoking_status, alcohol_status
+            fig_trend.update_layout(
+                height=600,
+                title_text="Heart Rate Sensitivity vs Benchmark Person",
+                showlegend=False,
+                font=dict(size=10)
             )
             
-            fig_age.add_trace(go.Scatter(
-                x=[age],
-                y=[current_risk_for_age],
-                mode='markers',
-                name='Your Current Age',
-                marker=dict(size=15, color='red', symbol='star')
-            ))
+            # Update axes for each subplot
+            for i in range(len(top_diseases)):
+                row = (i // 3) + 1
+                col = (i % 3) + 1
+                fig_trend.update_xaxes(title_text="Heart Rate (bpm)", row=row, col=col)
+                fig_trend.update_yaxes(title_text="Relative Risk vs Benchmark", row=row, col=col)
             
-            fig_age.update_layout(
-                title=f"Risk Progression for {age_analysis_disease}",
-                xaxis_title="Age (years)",
-                yaxis_title="Risk Ratio",
-                height=400
-            )
+            st.plotly_chart(fig_trend, use_container_width=True)
             
-            st.plotly_chart(fig_age, use_container_width=True)
+            # Add legend explanation
+            st.markdown("""
+            <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
+                <strong>📖 Chart Legend:</strong><br>
+                • <span style="color: gray;">Gray dashed line</span>: Same risk as benchmark person (1.0x)<br>
+                • <span style="color: red;">Red star</span>: Your current risk level<br>
+                • Shows how your risk vs benchmark changes with different heart rates
+            </div>
+            """, unsafe_allow_html=True)
+    
+    # Recommendations based on results
+    st.markdown("### 💊 Personalized Recommendations")
+    
+    if relative_risks:
+        max_risk = max(relative_risks.values())
+        high_risk_diseases = [disease for disease, risk in relative_risks.items() if risk >= 1.3]
         
-        # Summary and recommendations
-        st.markdown("### 🎯 Personalized Action Plan")
-        
-        max_risk = max(risks.values()) if risks else 1.0
-        high_risk_diseases = [disease for disease, risk in risks.items() if risk >= 1.5]
-        
-        if max_risk >= 2.0:
+        if max_risk >= 1.3:
             st.markdown(f"""
             <div class="warning-box">
-                <strong>🚨 Very High Risk Profile</strong><br>
-                You show significantly elevated risk for multiple conditions including: 
+                <strong>⚠️ Higher Risk Than Benchmark</strong><br>
+                Compared to a healthy 40-year-old benchmark person, you have elevated risk for: 
                 <strong>{', '.join(high_risk_diseases[:3])}</strong>
-                {f' and {len(high_risk_diseases)-3} others' if len(high_risk_diseases) > 3 else ''}.<br>
-                <br>
-                <strong>Immediate Actions:</strong><br>
-                • Schedule comprehensive medical evaluation<br>
-                • Discuss preventive strategies with your healthcare provider<br>
-                • Consider lifestyle modifications based on your risk factors
+                {' and others' if len(high_risk_diseases) > 3 else ''}.<br><br>
+                <strong>Recommendations:</strong><br>
+                • Consider consulting with a healthcare provider<br>
+                • Focus on modifiable risk factors (exercise, diet, stress)<br>
+                • Regular health monitoring and preventive care
             </div>
             """, unsafe_allow_html=True)
-        elif max_risk >= 1.5:
-            st.markdown(f"""
-            <div class="warning-box">
-                <strong>⚠️ High Risk Profile</strong><br>
-                Elevated risk detected for: <strong>{', '.join(high_risk_diseases[:2])}</strong>
-                {f' and {len(high_risk_diseases)-2} others' if len(high_risk_diseases) > 2 else ''}.<br>
-                <br>
-                <strong>Recommended Actions:</strong><br>
-                • Regular health screenings<br>
-                • Lifestyle modifications focusing on modifiable risk factors<br>
-                • Consider preventive interventions
-            </div>
-            """, unsafe_allow_html=True)
-        elif max_risk >= 1.2:
+        elif max_risk >= 1.1:
             st.markdown("""
             <div class="warning-box">
-                <strong>⚡ Moderate Risk Profile</strong><br>
-                Some conditions show elevated risk. Focus on preventive measures:<br>
-                • Regular exercise and healthy diet<br>
-                • Stress management<br>
-                • Monitor key health indicators
+                <strong>⚡ Slightly Higher Risk Than Benchmark</strong><br>
+                Your profile shows moderately higher risk compared to the benchmark person.<br><br>
+                <strong>Recommendations:</strong><br>
+                • Continue healthy lifestyle habits<br>
+                • Regular physical activity and balanced nutrition<br>
+                • Monitor cardiovascular health regularly<br>
+                • Consider stress management techniques
             </div>
             """, unsafe_allow_html=True)
         else:
             st.markdown("""
             <div class="info-box">
-                <strong>✅ Low Risk Profile</strong><br>
-                Your current risk profile appears favorable. Maintain healthy habits:<br>
-                • Continue current lifestyle<br>
-                • Regular health check-ups<br>
-                • Stay informed about preventive care
+                <strong>✅ Similar Risk to Healthy Benchmark</strong><br>
+                Your risk profile is similar to or better than our healthy benchmark person.<br><br>
+                <strong>Maintain:</strong><br>
+                • Continue current healthy lifestyle<br>
+                • Regular exercise and balanced nutrition<br>
+                • Routine preventive care and health monitoring
             </div>
             """, unsafe_allow_html=True)
+        
+        # Specific lifestyle recommendations based on heart rate
+        if current_hr >= 90:
+            st.markdown("""
+            <div class="warning-box">
+                <strong>🏃 Heart Rate Specific Advice:</strong><br>
+                Your resting heart rate (≥90 bpm) is significantly higher than the benchmark (65 bpm). Consider:<br>
+                • Aerobic exercise training to improve cardiovascular fitness<br>
+                • Stress reduction techniques (meditation, yoga)<br>
+                • Adequate sleep (7-9 hours per night)<br>
+                • Limit caffeine and stimulants<br>
+                • Medical evaluation to rule out underlying conditions
+            </div>
+            """, unsafe_allow_html=True)
+        elif current_hr >= 80:
+            st.markdown("""
+            <div class="info-box">
+                <strong>💓 Heart Rate Optimization:</strong><br>
+                Your heart rate is higher than the benchmark person (65 bpm). To optimize:<br>
+                • Regular cardio exercise 150+ minutes per week<br>
+                • Maintain healthy weight (BMI 18.5-24.9)<br>
+                • Manage stress effectively<br>
+                • Stay hydrated and get adequate rest
+            </div>
+            """, unsafe_allow_html=True)
+    
+    # Model methodology explanation
+    with st.expander("📊 Model Methodology & Limitations"):
+        st.markdown("""
+        ### Cox Regression Model with Benchmark Comparison
+        
+        **Benchmark Person (Fixed Reference):**
+        - **Age:** 40 years, **Gender:** Male, **BMI:** 22.0
+        - **Heart Rate:** 65 bpm (60-69 category)
+        - **Lifestyle:** Never smoker, Never drinker
+        
+        **Model Structure:**
+        - **Heart Rate Categories:** <60, 60-69 (reference), 70-79, 80-89, ≥90 bpm
+        - **Adjustments:** Age, gender, BMI, smoking status, drinking status
+        - **Output:** Your relative risk compared to the benchmark person
+        
+        **Interpretation:**
+        - **1.0x:** Same risk as benchmark person
+        - **>1.0x:** Higher risk than benchmark (e.g., 1.5x = 50% higher risk)
+        - **<1.0x:** Lower risk than benchmark (e.g., 0.8x = 20% lower risk)
+        
+        **Important Limitations:**
+        - Results are based on population-level associations from Taiwan Biobank
+        - Individual risk may vary due to genetic factors and unmeasured variables
+        - Model does not establish causation, only associations
+        - Not a substitute for professional medical assessment
+        - Benchmark represents a healthy individual profile
+        
+        **Clinical Context:**
+        The benchmark person (40-year-old healthy male) represents a low-risk individual. 
+        Comparing to this benchmark helps understand your relative risk in practical terms.
+        
+        **Model Structure:**
+        - **Heart Rate Categories:** <60, 60-69 (reference), 70-79, 80-89, ≥90 bpm
+        - **Adjustments:** Age, gender, BMI, smoking status, drinking status
+        - **Output:** Your relative risk compared to the benchmark person
+        
+        **Interpretation:**
+        - **1.0x:** Same risk as benchmark person
+        - **>1.0x:** Higher risk than benchmark (e.g., 1.5x = 50% higher risk)
+        - **<1.0x:** Lower risk than benchmark (e.g., 0.8x = 20% lower risk)
+        
+        **Important Limitations:**
+        - Results are based on population-level associations from Taiwan Biobank
+        - Individual risk may vary due to genetic factors and unmeasured variables
+        - Model does not establish causation, only associations
+        - Not a substitute for professional medical assessment
+        - Benchmark represents a healthy individual profile
+        
+        **Clinical Context:**
+        The benchmark person (40-year-old healthy male) represents a low-risk individual. 
+        Comparing to this benchmark helps understand your relative risk in practical terms.
+        """)
     
     # Footer with disclaimer
     st.markdown("---")
     st.markdown("""
     <div style="text-align: center; color: #7f8c8d; font-size: 0.9rem;">
-        <strong>⚠️ Medical Disclaimer:</strong> This calculator is for educational purposes only. 
-        Results are based on Taiwan Biobank population data and represent statistical associations, 
-        not individual predictions. Risk factors interact in complex ways not fully captured by 
-        this model. Always consult healthcare professionals for personal medical advice, diagnosis, 
-        and treatment decisions.
+        <strong>⚠️ Medical Disclaimer:</strong> This calculator compares your risk profile to a healthy benchmark person 
+        using Cox regression model results for educational purposes only. The relative risks are based on 
+        population-level data and should not replace professional medical advice. Individual risk factors 
+        and health conditions not included in the model may significantly affect your actual risk. 
+        Always consult with a healthcare provider for personal health assessments and treatment decisions.
     </div>
     """, unsafe_allow_html=True)
     
-    # Data source and methodology
+    # Data source
     st.markdown("""
     <div style="text-align: center; color: #95a5a6; font-size: 0.8rem; margin-top: 1rem;">
-        <em><strong>Methodology:</strong> Risk calculations use hazard ratios from Taiwan Biobank Model 1<br>
-        Baseline population: 60-69 bpm, male, never smoker, never drinker<br>
-        Continuous variables (age, BMI) calculated as HR^value relative to baseline<br>
-        Total risk = HR_heartrate × HR_age^age × HR_gender × HR_BMI^BMI × HR_smoking × HR_alcohol</em>
+        <em>Risk calculations based on Cox regression model coefficients from Taiwan Biobank study.<br>
+        Benchmark person: 40-year-old male, BMI 22, HR 65 bpm, never smoker/drinker.</em>
     </div>
     """, unsafe_allow_html=True)
 
