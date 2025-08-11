@@ -1,16 +1,9 @@
 # -*- coding: utf-8 -*-
 """
 Created on Mon Aug 11 13:53:22 2025
+Updated on Mon Aug 11 15:22 2025
 
 @author: chun5
-"""
-
-# -*- coding: utf-8 -*-
-"""
-Enhanced Heart Rate Risk Calculator using Cox Regression Model Results
-Updated to use actual model coefficients from TWB_model1_sig.csv
-
-@author: Enhanced with Cox regression model
 """
 
 import streamlit as st
@@ -112,8 +105,8 @@ Anxiety,HR_cat<60,-0.0147946
 Anxiety,HR_cat70-79,0.0331788
 Anxiety,HR_cat80-89,0.079773
 Anxiety,HR_cat>=90,0.0326789
-Anxiety,AGE,0.0221697
-Anxiety,MALE,REF
+Anxiety,AGE,REF
+Anxiety,MALE,0.0221697
 Anxiety,FERMALE,0.5610132
 Anxiety,BMI,-0.0212976
 Anxiety,Nerver_smoke,REF
@@ -449,20 +442,52 @@ def calculate_cox_hazard_ratio(disease_name, age, gender, hr, bmi, smoking_statu
         st.error(f"Error calculating hazard ratio for {disease_name}: {str(e)}")
         return None
 
-def get_risk_color(hazard_ratio):
-    """Get color based on risk level"""
-    if hazard_ratio < 1.2:
+def calculate_benchmark_comparison(disease_name, user_age, user_gender, user_hr, user_bmi, 
+                                 user_smoking, user_drinking, model_df):
+    """
+    Calculate user's risk relative to a benchmark person
+    Benchmark: Age=40, Male, HR=65 (60-69 category), BMI=22, Never smoker, Never drinker
+    """
+    # Define benchmark person
+    benchmark_age = 40
+    benchmark_gender = 'Male'
+    benchmark_hr = 65  # Falls in HR_cat60-69
+    benchmark_bmi = 22.0
+    benchmark_smoking = 'Never Smoker'
+    benchmark_drinking = 'Never Drinker'
+    
+    # Calculate benchmark person's hazard ratio
+    benchmark_hr_ratio = calculate_cox_hazard_ratio(
+        disease_name, benchmark_age, benchmark_gender, benchmark_hr, 
+        benchmark_bmi, benchmark_smoking, benchmark_drinking, model_df
+    )
+    
+    # Calculate user's hazard ratio
+    user_hr_ratio = calculate_cox_hazard_ratio(
+        disease_name, user_age, user_gender, user_hr, 
+        user_bmi, user_smoking, user_drinking, model_df
+    )
+    
+    # Return relative risk compared to benchmark
+    if benchmark_hr_ratio is not None and user_hr_ratio is not None and benchmark_hr_ratio != 0:
+        return user_hr_ratio / benchmark_hr_ratio
+    else:
+        return None
+
+def get_risk_color(relative_risk):
+    """Get color based on relative risk compared to benchmark"""
+    if relative_risk < 1.1:
         return "#27ae60"  # Green
-    elif hazard_ratio < 1.5:
+    elif relative_risk < 1.3:
         return "#f39c12"  # Orange
     else:
         return "#e74c3c"  # Red
 
-def get_risk_level(hazard_ratio):
-    """Get risk level description"""
-    if hazard_ratio < 1.2:
-        return "Low Risk"
-    elif hazard_ratio < 1.5:
+def get_risk_level(relative_risk):
+    """Get risk level description compared to benchmark"""
+    if relative_risk < 1.1:
+        return "Similar Risk"
+    elif relative_risk < 1.3:
         return "Moderate Risk"
     else:
         return "High Risk"
@@ -553,47 +578,47 @@ def main():
     with col1:
         st.markdown("### 📈 Disease Risk Assessment Results")
         
-        # Calculate hazard ratios for all diseases
-        hazard_ratios = {}
+        # Calculate relative risks compared to benchmark for all diseases
+        relative_risks = {}
         filtered_diseases = []
         
         for disease in diseases:
             category = categorize_diseases(disease)
             if category in selected_categories:
                 filtered_diseases.append(disease)
-                hr = calculate_cox_hazard_ratio(
+                rel_risk = calculate_benchmark_comparison(
                     disease, age, gender, current_hr, bmi, 
                     smoking_status, drinking_status, model_df
                 )
-                if hr is not None:
-                    hazard_ratios[disease] = hr
+                if rel_risk is not None:
+                    relative_risks[disease] = rel_risk
         
-        if hazard_ratios:
+        if relative_risks:
             # Create risk visualization
-            diseases_list = list(hazard_ratios.keys())
-            hr_values = list(hazard_ratios.values())
-            colors = [get_risk_color(hr) for hr in hr_values]
+            diseases_list = list(relative_risks.keys())
+            risk_values = list(relative_risks.values())
+            colors = [get_risk_color(risk) for risk in risk_values]
             
-            # Sort by hazard ratio for better visualization
-            sorted_data = sorted(zip(diseases_list, hr_values, colors), key=lambda x: x[1], reverse=True)
-            diseases_sorted, hr_sorted, colors_sorted = zip(*sorted_data)
+            # Sort by relative risk for better visualization
+            sorted_data = sorted(zip(diseases_list, risk_values, colors), key=lambda x: x[1], reverse=True)
+            diseases_sorted, risks_sorted, colors_sorted = zip(*sorted_data)
             
             # Bar chart
             fig = go.Figure(data=[
                 go.Bar(
                     y=diseases_sorted,
-                    x=hr_sorted,
+                    x=risks_sorted,
                     orientation='h',
                     marker_color=colors_sorted,
-                    text=[f"{hr:.2f}" for hr in hr_sorted],
+                    text=[f"{risk:.2f}x" for risk in risks_sorted],
                     textposition='auto',
-                    hovertemplate='<b>%{y}</b><br>Hazard Ratio: %{x:.2f}<extra></extra>'
+                    hovertemplate='<b>%{y}</b><br>Relative Risk: %{x:.2f}x vs benchmark<extra></extra>'
                 )
             ])
             
             fig.update_layout(
-                title="Hazard Ratios by Disease (Cox Regression Model)",
-                xaxis_title="Hazard Ratio",
+                title="Your Risk vs Healthy Benchmark Person",
+                xaxis_title="Relative Risk (vs Benchmark Person)",
                 yaxis_title="Diseases",
                 height=max(400, len(diseases_list) * 25),
                 showlegend=False,
@@ -603,7 +628,7 @@ def main():
             )
             
             fig.add_vline(x=1.0, line_dash="dash", line_color="gray", 
-                         annotation_text="Baseline Risk (HR=1.0)", annotation_position="top")
+                         annotation_text="Same as Benchmark (1.0x)", annotation_position="top")
             
             st.plotly_chart(fig, use_container_width=True)
             
@@ -611,18 +636,18 @@ def main():
             st.markdown("### 🎯 Risk Level Summary")
             cols = st.columns(3)
             
-            high_risk = sum(1 for hr in hr_values if hr >= 1.5)
-            moderate_risk = sum(1 for hr in hr_values if 1.2 <= hr < 1.5)
-            low_risk = sum(1 for hr in hr_values if hr < 1.2)
+            high_risk = sum(1 for risk in risk_values if risk >= 1.3)
+            moderate_risk = sum(1 for risk in risk_values if 1.1 <= risk < 1.3)
+            similar_risk = sum(1 for risk in risk_values if risk < 1.1)
             
             with cols[0]:
-                st.metric("🔴 High Risk Conditions", high_risk)
+                st.metric("🔴 High Risk vs Benchmark", high_risk)
             with cols[1]:
-                st.metric("🟡 Moderate Risk Conditions", moderate_risk)
+                st.metric("🟡 Moderate Risk vs Benchmark", moderate_risk)
             with cols[2]:
-                st.metric("🟢 Low Risk Conditions", low_risk)
+                st.metric("🟢 Similar Risk to Benchmark", similar_risk)
         else:
-            st.warning("No valid hazard ratios calculated. Please check your input parameters.")
+            st.warning("No valid risk comparisons calculated. Please check your input parameters.")
     
     with col2:
         st.markdown("### 💡 Heart Rate Status")
@@ -649,11 +674,14 @@ def main():
         st.markdown("### 📚 Model Information")
         st.markdown("""
         <div class="info-box">
-            <strong>Cox Regression Model:</strong><br>
-            • Reference HR: 60-69 bpm<br>
-            • Reference: Male, Never smoker/drinker<br>
-            • Adjusted for age and BMI<br>
-            • HR > 1.0 indicates increased risk
+            <strong>Benchmark Person:</strong><br>
+            • Age: 40 years<br>
+            • Gender: Male<br>
+            • BMI: 22.0<br>
+            • Heart Rate: 65 bpm (60-69 range)<br>
+            • Smoking: Never smoker<br>
+            • Drinking: Never drinker<br><br>
+            <em>Your risk is compared to this healthy baseline individual.</em>
         </div>
         """, unsafe_allow_html=True)
         
@@ -671,23 +699,24 @@ def main():
         """, unsafe_allow_html=True)
     
     # Detailed risk breakdown
-    if hazard_ratios:
+    if relative_risks:
         st.markdown("### 📋 Detailed Risk Analysis")
         
         # Create detailed table with categories
         risk_df = pd.DataFrame({
-            'Disease': list(hazard_ratios.keys()),
-            'Category': [categorize_diseases(disease) for disease in hazard_ratios.keys()],
-            'Hazard Ratio': [f"{hr:.3f}" for hr in hazard_ratios.values()],
-            'Risk Level': [get_risk_level(hr) for hr in hazard_ratios.values()],
+            'Disease': list(relative_risks.keys()),
+            'Category': [categorize_diseases(disease) for disease in relative_risks.keys()],
+            'Relative Risk vs Benchmark': [f"{risk:.3f}x" for risk in relative_risks.values()],
+            'Risk Level': [get_risk_level(risk) for risk in relative_risks.values()],
             'Risk Interpretation': [
-                f"{((hr-1)*100):+.1f}% change from baseline" if hr != 1.0 else "Baseline risk"
-                for hr in hazard_ratios.values()
+                f"{((risk-1)*100):+.1f}% vs benchmark person" if risk != 1.0 else "Same as benchmark"
+                for risk in relative_risks.values()
             ]
         })
         
-        # Sort by hazard ratio
-        risk_df = risk_df.sort_values('Hazard Ratio', ascending=False, key=lambda x: x.astype(float))
+        # Sort by relative risk
+        risk_df = risk_df.sort_values('Relative Risk vs Benchmark', ascending=False, 
+                                    key=lambda x: x.str.replace('x', '').astype(float))
         
         # Color code the table
         def style_risk_level(val):
@@ -704,8 +733,8 @@ def main():
         # Heart rate sensitivity analysis
         st.markdown("### 📊 Heart Rate Sensitivity Analysis")
         
-        # Select top 5 diseases with highest hazard ratios for trend analysis
-        top_diseases = sorted(hazard_ratios.items(), key=lambda x: x[1], reverse=True)[:6]
+        # Select top 5 diseases with highest relative risks for trend analysis
+        top_diseases = sorted(relative_risks.items(), key=lambda x: x[1], reverse=True)[:6]
         
         if len(top_diseases) > 0:
             hr_range = np.arange(50, 101, 5)
@@ -722,13 +751,13 @@ def main():
                 row = (i // 3) + 1
                 col = (i % 3) + 1
                 
-                trend_hrs = []
+                trend_risks = []
                 for test_hr in hr_range:
-                    hr = calculate_cox_hazard_ratio(
+                    rel_risk = calculate_benchmark_comparison(
                         disease, age, gender, test_hr, bmi, 
                         smoking_status, drinking_status, model_df
                     )
-                    trend_hrs.append(hr if hr is not None else 1.0)
+                    trend_risks.append(rel_risk if rel_risk is not None else 1.0)
                 
                 # Add baseline reference line
                 fig_trend.add_hline(
@@ -743,7 +772,7 @@ def main():
                 fig_trend.add_trace(
                     go.Scatter(
                         x=hr_range, 
-                        y=trend_hrs,
+                        y=trend_risks,
                         mode='lines+markers',
                         name=disease,
                         line=dict(width=3),
@@ -754,7 +783,7 @@ def main():
                 )
                 
                 # Add current point
-                current_risk = hazard_ratios[disease]
+                current_risk = relative_risks[disease]
                 fig_trend.add_trace(
                     go.Scatter(
                         x=[current_hr], 
@@ -763,14 +792,14 @@ def main():
                         name=f"Your Risk",
                         marker=dict(size=12, color='red', symbol='star'),
                         showlegend=False,
-                        hovertemplate=f'<b>{disease}</b><br>HR: {current_hr} bpm<br>HR: {current_risk:.2f}<extra></extra>'
+                        hovertemplate=f'<b>{disease}</b><br>HR: {current_hr} bpm<br>Relative Risk: {current_risk:.2f}x<extra></extra>'
                     ),
                     row=row, col=col
                 )
             
             fig_trend.update_layout(
                 height=600,
-                title_text="Heart Rate Sensitivity for Top Risk Diseases",
+                title_text="Heart Rate Sensitivity vs Benchmark Person",
                 showlegend=False,
                 font=dict(size=10)
             )
@@ -780,7 +809,7 @@ def main():
                 row = (i // 3) + 1
                 col = (i % 3) + 1
                 fig_trend.update_xaxes(title_text="Heart Rate (bpm)", row=row, col=col)
-                fig_trend.update_yaxes(title_text="Hazard Ratio", row=row, col=col)
+                fig_trend.update_yaxes(title_text="Relative Risk vs Benchmark", row=row, col=col)
             
             st.plotly_chart(fig_trend, use_container_width=True)
             
@@ -788,52 +817,53 @@ def main():
             st.markdown("""
             <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
                 <strong>📖 Chart Legend:</strong><br>
-                • <span style="color: gray;">Gray dashed line</span>: Baseline risk (HR=1.0)<br>
+                • <span style="color: gray;">Gray dashed line</span>: Same risk as benchmark person (1.0x)<br>
                 • <span style="color: red;">Red star</span>: Your current risk level<br>
-                • Shows how risk changes with different heart rates while keeping other factors constant
+                • Shows how your risk vs benchmark changes with different heart rates
             </div>
             """, unsafe_allow_html=True)
     
     # Recommendations based on results
     st.markdown("### 💊 Personalized Recommendations")
     
-    if hazard_ratios:
-        max_hr = max(hazard_ratios.values())
-        high_risk_diseases = [disease for disease, hr in hazard_ratios.items() if hr >= 1.5]
+    if relative_risks:
+        max_risk = max(relative_risks.values())
+        high_risk_diseases = [disease for disease, risk in relative_risks.items() if risk >= 1.3]
         
-        if max_hr >= 1.5:
+        if max_risk >= 1.3:
             st.markdown(f"""
             <div class="warning-box">
-                <strong>⚠️ High Risk Detected</strong><br>
-                You have elevated risk for: <strong>{', '.join(high_risk_diseases[:3])}</strong>
+                <strong>⚠️ Higher Risk Than Benchmark</strong><br>
+                Compared to a healthy 40-year-old benchmark person, you have elevated risk for: 
+                <strong>{', '.join(high_risk_diseases[:3])}</strong>
                 {' and others' if len(high_risk_diseases) > 3 else ''}.<br><br>
                 <strong>Recommendations:</strong><br>
-                • Consult with a healthcare provider about your elevated heart rate<br>
-                • Consider cardiovascular evaluation<br>
-                • Lifestyle modifications may help reduce risk
+                • Consider consulting with a healthcare provider<br>
+                • Focus on modifiable risk factors (exercise, diet, stress)<br>
+                • Regular health monitoring and preventive care
             </div>
             """, unsafe_allow_html=True)
-        elif max_hr >= 1.2:
+        elif max_risk >= 1.1:
             st.markdown("""
             <div class="warning-box">
-                <strong>⚡ Moderate Risk</strong><br>
-                Your profile shows moderate increased risk for some conditions.<br><br>
+                <strong>⚡ Slightly Higher Risk Than Benchmark</strong><br>
+                Your profile shows moderately higher risk compared to the benchmark person.<br><br>
                 <strong>Recommendations:</strong><br>
-                • Regular exercise to improve cardiovascular fitness<br>
-                • Maintain healthy weight and diet<br>
-                • Consider stress management techniques<br>
-                • Regular health check-ups
+                • Continue healthy lifestyle habits<br>
+                • Regular physical activity and balanced nutrition<br>
+                • Monitor cardiovascular health regularly<br>
+                • Consider stress management techniques
             </div>
             """, unsafe_allow_html=True)
         else:
             st.markdown("""
             <div class="info-box">
-                <strong>✅ Good Risk Profile</strong><br>
-                Your current profile shows generally low risk across conditions.<br><br>
+                <strong>✅ Similar Risk to Healthy Benchmark</strong><br>
+                Your risk profile is similar to or better than our healthy benchmark person.<br><br>
                 <strong>Maintain:</strong><br>
                 • Continue current healthy lifestyle<br>
                 • Regular exercise and balanced nutrition<br>
-                • Routine preventive care
+                • Routine preventive care and health monitoring
             </div>
             """, unsafe_allow_html=True)
         
@@ -842,7 +872,7 @@ def main():
             st.markdown("""
             <div class="warning-box">
                 <strong>🏃 Heart Rate Specific Advice:</strong><br>
-                Your resting heart rate (≥90 bpm) is elevated. Consider:<br>
+                Your resting heart rate (≥90 bpm) is significantly higher than the benchmark (65 bpm). Consider:<br>
                 • Aerobic exercise training to improve cardiovascular fitness<br>
                 • Stress reduction techniques (meditation, yoga)<br>
                 • Adequate sleep (7-9 hours per night)<br>
@@ -854,7 +884,7 @@ def main():
             st.markdown("""
             <div class="info-box">
                 <strong>💓 Heart Rate Optimization:</strong><br>
-                Your heart rate is in the higher normal range. To optimize:<br>
+                Your heart rate is higher than the benchmark person (65 bpm). To optimize:<br>
                 • Regular cardio exercise 150+ minutes per week<br>
                 • Maintain healthy weight (BMI 18.5-24.9)<br>
                 • Manage stress effectively<br>
@@ -865,36 +895,64 @@ def main():
     # Model methodology explanation
     with st.expander("📊 Model Methodology & Limitations"):
         st.markdown("""
-        ### Cox Regression Model Details
+        ### Cox Regression Model with Benchmark Comparison
+        
+        **Benchmark Person (Fixed Reference):**
+        - **Age:** 40 years, **Gender:** Male, **BMI:** 22.0
+        - **Heart Rate:** 65 bpm (60-69 category)
+        - **Lifestyle:** Never smoker, Never drinker
         
         **Model Structure:**
         - **Heart Rate Categories:** <60, 60-69 (reference), 70-79, 80-89, ≥90 bpm
         - **Adjustments:** Age, gender, BMI, smoking status, drinking status
-        - **Output:** Hazard Ratios (HR) representing relative risk compared to reference group
+        - **Output:** Your relative risk compared to the benchmark person
         
         **Interpretation:**
-        - HR = 1.0: Same risk as reference group
-        - HR > 1.0: Increased risk (e.g., HR = 1.5 means 50% higher risk)
-        - HR < 1.0: Decreased risk (e.g., HR = 0.8 means 20% lower risk)
+        - **1.0x:** Same risk as benchmark person
+        - **>1.0x:** Higher risk than benchmark (e.g., 1.5x = 50% higher risk)
+        - **<1.0x:** Lower risk than benchmark (e.g., 0.8x = 20% lower risk)
         
         **Important Limitations:**
-        - Results are based on population-level associations
-        - Individual risk may vary due to unmeasured factors
-        - Model does not establish causation
+        - Results are based on population-level associations from Taiwan Biobank
+        - Individual risk may vary due to genetic factors and unmeasured variables
+        - Model does not establish causation, only associations
         - Not a substitute for professional medical assessment
-        - Based on specific study population characteristics
+        - Benchmark represents a healthy individual profile
         
-        **Data Source:**
-        Taiwan Biobank Cox regression model results for disease risk prediction.
+        **Clinical Context:**
+        The benchmark person (40-year-old healthy male) represents a low-risk individual. 
+        Comparing to this benchmark helps understand your relative risk in practical terms.
+        
+        **Model Structure:**
+        - **Heart Rate Categories:** <60, 60-69 (reference), 70-79, 80-89, ≥90 bpm
+        - **Adjustments:** Age, gender, BMI, smoking status, drinking status
+        - **Output:** Your relative risk compared to the benchmark person
+        
+        **Interpretation:**
+        - **1.0x:** Same risk as benchmark person
+        - **>1.0x:** Higher risk than benchmark (e.g., 1.5x = 50% higher risk)
+        - **<1.0x:** Lower risk than benchmark (e.g., 0.8x = 20% lower risk)
+        
+        **Important Limitations:**
+        - Results are based on population-level associations from Taiwan Biobank
+        - Individual risk may vary due to genetic factors and unmeasured variables
+        - Model does not establish causation, only associations
+        - Not a substitute for professional medical assessment
+        - Benchmark represents a healthy individual profile
+        
+        **Clinical Context:**
+        The benchmark person (40-year-old healthy male) represents a low-risk individual. 
+        Comparing to this benchmark helps understand your relative risk in practical terms.
         """)
     
     # Footer with disclaimer
     st.markdown("---")
     st.markdown("""
     <div style="text-align: center; color: #7f8c8d; font-size: 0.9rem;">
-        <strong>⚠️ Medical Disclaimer:</strong> This calculator uses Cox regression model results for educational purposes only. 
-        The hazard ratios are based on population-level data and should not replace professional medical advice. 
-        Individual risk factors and health conditions not included in the model may significantly affect your actual risk. 
+        <strong>⚠️ Medical Disclaimer:</strong> This calculator compares your risk profile to a healthy benchmark person 
+        using Cox regression model results for educational purposes only. The relative risks are based on 
+        population-level data and should not replace professional medical advice. Individual risk factors 
+        and health conditions not included in the model may significantly affect your actual risk. 
         Always consult with a healthcare provider for personal health assessments and treatment decisions.
     </div>
     """, unsafe_allow_html=True)
@@ -903,10 +961,9 @@ def main():
     st.markdown("""
     <div style="text-align: center; color: #95a5a6; font-size: 0.8rem; margin-top: 1rem;">
         <em>Risk calculations based on Cox regression model coefficients from Taiwan Biobank study.<br>
-        Reference group: 60-69 bpm heart rate, male, never smoker/drinker.</em>
+        Benchmark person: 40-year-old male, BMI 22, HR 65 bpm, never smoker/drinker.</em>
     </div>
     """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
-
     main()
