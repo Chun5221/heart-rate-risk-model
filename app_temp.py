@@ -112,8 +112,8 @@ Anxiety,HR_cat<60,-0.0147946
 Anxiety,HR_cat70-79,0.0331788
 Anxiety,HR_cat80-89,0.079773
 Anxiety,HR_cat>=90,0.0326789
-Anxiety,AGE,REF
-Anxiety,MALE,0.0221697
+Anxiety,AGE,0.0221697
+Anxiety,MALE,REF
 Anxiety,FERMALE,0.5610132
 Anxiety,BMI,-0.0212976
 Anxiety,Nerver_smoke,REF
@@ -908,4 +908,5 @@ def main():
     """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
+
     main()
