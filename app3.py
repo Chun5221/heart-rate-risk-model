@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Updated Heart Rate Risk Calculator using Complete TWB Model Data
-Created on Tue Jul 15 09:07:48 2025
-Updated on Thu Jul 17 13:51 2025
-Updated on Thu Aug 11 10:55 2025 with Complete TWB Model Data (HR + Demographics + Lifestyle)
+Created on Mon Aug 11 10:19:31 2025
+Updated on Mon Aug 11 11:01 2025
 
 @author: chun5
 """
@@ -537,4 +535,382 @@ def main():
             alcohol_risk = 1.0
             if alcohol_status == 'Current Drinker':
                 alcohol_risk = disease_data.get('Now_drink', 1.0)
-            elif alcohol
+            elif alcohol_status == 'Former Drinker':
+                alcohol_risk = disease_data.get('Ever_drink', 1.0)
+            factors.append(("Alcohol", alcohol_risk, alcohol_status))
+            
+            # Sort factors by impact
+            factors.sort(key=lambda x: abs(x[1] - 1.0), reverse=True)
+            
+            for factor_name, factor_risk, factor_value in factors:
+                if abs(factor_risk - 1.0) > 0.05:  # Only show significant factors
+                    impact = "Increases" if factor_risk > 1.0 else "Decreases"
+                    color = "#e74c3c" if factor_risk > 1.0 else "#27ae60"
+                    st.markdown(f"""
+                    <div style="background: {color}20; border-left: 4px solid {color}; padding: 0.5rem; margin: 0.3rem 0; border-radius: 5px;">
+                        <strong>{factor_name}:</strong> {factor_risk:.2f}x<br>
+                        <small>{factor_value} - {impact} risk</small>
+                    </div>
+                    """, unsafe_allow_html=True)
+        
+        # Health recommendations
+        st.markdown("### 💊 Health Recommendations")
+        
+        recommendations = []
+        
+        # BMI recommendations
+        if bmi >= 30:
+            recommendations.append("🏃‍♂️ Consider weight management - obesity significantly increases disease risk")
+        elif bmi >= 25:
+            recommendations.append("⚖️ Maintain healthy weight - slight weight reduction may help")
+        
+        # Heart rate recommendations
+        if heart_rate >= 90:
+            recommendations.append("💓 High resting heart rate - consider cardiovascular evaluation")
+        elif heart_rate >= 80:
+            recommendations.append("🏃‍♀️ Regular exercise may help lower resting heart rate")
+        
+        # Smoking recommendations
+        if smoking_status == 'Current Smoker':
+            recommendations.append("🚭 Smoking cessation is the most impactful change you can make")
+        elif smoking_status == 'Former Smoker':
+            recommendations.append("✅ Great job quitting smoking - continue to avoid tobacco")
+        
+        # Alcohol recommendations
+        if alcohol_status == 'Current Drinker':
+            recommendations.append("🍷 Consider moderating alcohol consumption")
+        
+        # Age-related recommendations
+        if age >= 65:
+            recommendations.append("👴 Regular health screenings become increasingly important with age")
+        
+        for rec in recommendations:
+            st.markdown(f"""
+            <div class="factor-box">
+                {rec}
+            </div>
+            """, unsafe_allow_html=True)
+    
+    if risks:
+        # Detailed risk breakdown table
+        st.markdown("### 📋 Detailed Risk Analysis")
+        
+        risk_df = pd.DataFrame({
+            'Disease': list(risks.keys()),
+            'Category': [twb_data[disease]['category'] for disease in risks.keys()],
+            'Risk Ratio': [f"{risk:.3f}x" for risk in risks.values()],
+            'Risk Level': [get_risk_level(risk) for risk in risks.values()],
+            'Population Baseline': ['1.000x'] * len(risks)
+        })
+        
+        # Color code the table
+        def style_risk_level(val):
+            if val == "Very High Risk":
+                return 'background-color: #ffcdd2; color: #b71c1c'
+            elif val == "High Risk":
+                return 'background-color: #ffecb3; color: #e65100'
+            elif val == "Moderate Risk":
+                return 'background-color: #fff3e0; color: #ef6c00'
+            else:
+                return 'background-color: #e8f5e8; color: #2e7d32'
+        
+        styled_df = risk_df.style.applymap(style_risk_level, subset=['Risk Level'])
+        st.dataframe(styled_df, use_container_width=True)
+        
+        # Factor contribution analysis
+        st.markdown("### 📊 Risk Factor Contribution Analysis")
+        
+        # Select diseases for detailed analysis
+        analysis_diseases = st.multiselect(
+            "Select diseases for detailed factor analysis:",
+            list(risks.keys()),
+            default=list(risks.keys())[:3] if len(risks) >= 3 else list(risks.keys()),
+            key="analysis_diseases"
+        )
+        
+        if analysis_diseases:
+            # Create factor contribution chart
+            fig_factors = make_subplots(
+                rows=len(analysis_diseases),
+                cols=1,
+                subplot_titles=analysis_diseases,
+                vertical_spacing=0.1
+            )
+            
+            for i, disease in enumerate(analysis_diseases, 1):
+                disease_data = twb_data[disease]
+                
+                # Calculate individual factors
+                factor_names = []
+                factor_values = []
+                factor_colors = []
+                
+                # Heart Rate
+                hr_risk = disease_data.get(get_hr_category(heart_rate), 1.0)
+                factor_names.append("Heart Rate")
+                factor_values.append(hr_risk)
+                factor_colors.append(get_risk_color(hr_risk))
+                
+                # Age (normalized to show per-decade impact)
+                age_risk_per_decade = disease_data.get('AGE', 1.0) ** 10
+                factor_names.append("Age (per 10y)")
+                factor_values.append(age_risk_per_decade)
+                factor_colors.append(get_risk_color(age_risk_per_decade))
+                
+                # Gender
+                gender_risk = disease_data.get('FEMALE', 1.0) if gender == 'Female' else 1.0
+                factor_names.append("Gender")
+                factor_values.append(gender_risk)
+                factor_colors.append(get_risk_color(gender_risk))
+                
+                # BMI (per 5-point increase)
+                bmi_risk_per_5 = disease_data.get('BMI', 1.0) ** 5
+                factor_names.append("BMI (per 5 pts)")
+                factor_values.append(bmi_risk_per_5)
+                factor_colors.append(get_risk_color(bmi_risk_per_5))
+                
+                # Smoking vs Never
+                smoke_risk = 1.0
+                smoke_label = "Smoking"
+                if smoking_status == 'Current Smoker':
+                    smoke_risk = disease_data.get('Now_smoke', 1.0)
+                    smoke_label = "Current Smoking"
+                elif smoking_status == 'Former Smoker':
+                    smoke_risk = disease_data.get('Ever_smoke', 1.0)
+                    smoke_label = "Former Smoking"
+                else:
+                    smoke_label = "Never Smoking"
+                
+                factor_names.append(smoke_label)
+                factor_values.append(smoke_risk)
+                factor_colors.append(get_risk_color(smoke_risk))
+                
+                # Alcohol vs Never
+                alcohol_risk = 1.0
+                alcohol_label = "Alcohol"
+                if alcohol_status == 'Current Drinker':
+                    alcohol_risk = disease_data.get('Now_drink', 1.0)
+                    alcohol_label = "Current Drinking"
+                elif alcohol_status == 'Former Drinker':
+                    alcohol_risk = disease_data.get('Ever_drink', 1.0)
+                    alcohol_label = "Former Drinking"
+                else:
+                    alcohol_label = "Never Drinking"
+                
+                factor_names.append(alcohol_label)
+                factor_values.append(alcohol_risk)
+                factor_colors.append(get_risk_color(alcohol_risk))
+                
+                # Add horizontal bar chart for each disease
+                fig_factors.add_trace(
+                    go.Bar(
+                        x=factor_values,
+                        y=factor_names,
+                        orientation='h',
+                        marker_color=factor_colors,
+                        text=[f"{val:.2f}x" for val in factor_values],
+                        textposition='auto',
+                        showlegend=False,
+                        hovertemplate='<b>%{y}</b><br>Risk Factor: %{x:.2f}x<extra></extra>'
+                    ),
+                    row=i, col=1
+                )
+                
+                # Add baseline line
+                fig_factors.add_vline(
+                    x=1.0,
+                    line_dash="dash",
+                    line_color="gray",
+                    opacity=0.7,
+                    row=i, col=1
+                )
+            
+            fig_factors.update_layout(
+                height=300 * len(analysis_diseases),
+                title_text="Risk Factor Contributions by Disease",
+                showlegend=False
+            )
+            
+            # Update x-axes
+            for i in range(len(analysis_diseases)):
+                fig_factors.update_xaxes(title_text="Risk Factor Value", row=i+1, col=1)
+            
+            st.plotly_chart(fig_factors, use_container_width=True)
+        
+        # Scenario analysis
+        st.markdown("### 🔮 What-If Scenario Analysis")
+        
+        with st.expander("🔍 Explore Different Scenarios"):
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("**Scenario Parameters:**")
+                scenario_hr = st.slider("Scenario Heart Rate", 50, 100, heart_rate, key="scenario_hr")
+                scenario_bmi = st.slider("Scenario BMI", 18.0, 35.0, bmi, key="scenario_bmi")
+                scenario_smoking = st.selectbox("Scenario Smoking", 
+                                              ["Never Smoker", "Former Smoker", "Current Smoker"], 
+                                              index=["Never Smoker", "Former Smoker", "Current Smoker"].index(smoking_status),
+                                              key="scenario_smoking")
+            
+            with col2:
+                st.markdown("**Impact Analysis:**")
+                
+                # Calculate scenario risks for top 3 diseases
+                top_3_diseases = sorted(risks.items(), key=lambda x: x[1], reverse=True)[:3]
+                
+                for disease_name, current_risk in top_3_diseases:
+                    disease_data = twb_data[disease_name]
+                    scenario_risk = calculate_comprehensive_risk(
+                        disease_data, age, gender, scenario_bmi, scenario_hr,
+                        scenario_smoking, alcohol_status
+                    )
+                    
+                    change = scenario_risk / current_risk
+                    change_text = f"{change:.2f}x"
+                    change_color = "#e74c3c" if change > 1 else "#27ae60"
+                    arrow = "↑" if change > 1 else "↓"
+                    
+                    st.markdown(f"""
+                    <div style="background: {change_color}20; border-left: 4px solid {change_color}; padding: 0.5rem; margin: 0.3rem 0; border-radius: 5px;">
+                        <strong>{disease_name}:</strong><br>
+                        Current: {current_risk:.2f}x → Scenario: {scenario_risk:.2f}x<br>
+                        <span style="color: {change_color};">{arrow} Change: {change_text}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+        
+        # Risk timeline (age progression)
+        st.markdown("### 📅 Risk Progression with Age")
+        
+        # Select disease for age analysis
+        age_analysis_disease = st.selectbox(
+            "Select disease for age progression analysis:",
+            list(risks.keys()),
+            key="age_analysis"
+        )
+        
+        if age_analysis_disease:
+            # Calculate risks for different ages
+            ages = list(range(max(20, age-20), min(90, age+30), 5))
+            age_risks = []
+            
+            disease_data = twb_data[age_analysis_disease]
+            for analysis_age in ages:
+                age_risk = calculate_comprehensive_risk(
+                    disease_data, analysis_age, gender, bmi, heart_rate,
+                    smoking_status, alcohol_status
+                )
+                age_risks.append(age_risk)
+            
+            # Create age progression chart
+            fig_age = go.Figure()
+            
+            fig_age.add_trace(go.Scatter(
+                x=ages,
+                y=age_risks,
+                mode='lines+markers',
+                name=age_analysis_disease,
+                line=dict(width=3, color='#3498db'),
+                marker=dict(size=8)
+            ))
+            
+            # Highlight current age
+            current_risk_for_age = calculate_comprehensive_risk(
+                disease_data, age, gender, bmi, heart_rate,
+                smoking_status, alcohol_status
+            )
+            
+            fig_age.add_trace(go.Scatter(
+                x=[age],
+                y=[current_risk_for_age],
+                mode='markers',
+                name='Your Current Age',
+                marker=dict(size=15, color='red', symbol='star')
+            ))
+            
+            fig_age.update_layout(
+                title=f"Risk Progression for {age_analysis_disease}",
+                xaxis_title="Age (years)",
+                yaxis_title="Risk Ratio",
+                height=400
+            )
+            
+            st.plotly_chart(fig_age, use_container_width=True)
+        
+        # Summary and recommendations
+        st.markdown("### 🎯 Personalized Action Plan")
+        
+        max_risk = max(risks.values()) if risks else 1.0
+        high_risk_diseases = [disease for disease, risk in risks.items() if risk >= 1.5]
+        
+        if max_risk >= 2.0:
+            st.markdown(f"""
+            <div class="warning-box">
+                <strong>🚨 Very High Risk Profile</strong><br>
+                You show significantly elevated risk for multiple conditions including: 
+                <strong>{', '.join(high_risk_diseases[:3])}</strong>
+                {f' and {len(high_risk_diseases)-3} others' if len(high_risk_diseases) > 3 else ''}.<br>
+                <br>
+                <strong>Immediate Actions:</strong><br>
+                • Schedule comprehensive medical evaluation<br>
+                • Discuss preventive strategies with your healthcare provider<br>
+                • Consider lifestyle modifications based on your risk factors
+            </div>
+            """, unsafe_allow_html=True)
+        elif max_risk >= 1.5:
+            st.markdown(f"""
+            <div class="warning-box">
+                <strong>⚠️ High Risk Profile</strong><br>
+                Elevated risk detected for: <strong>{', '.join(high_risk_diseases[:2])}</strong>
+                {f' and {len(high_risk_diseases)-2} others' if len(high_risk_diseases) > 2 else ''}.<br>
+                <br>
+                <strong>Recommended Actions:</strong><br>
+                • Regular health screenings<br>
+                • Lifestyle modifications focusing on modifiable risk factors<br>
+                • Consider preventive interventions
+            </div>
+            """, unsafe_allow_html=True)
+        elif max_risk >= 1.2:
+            st.markdown("""
+            <div class="warning-box">
+                <strong>⚡ Moderate Risk Profile</strong><br>
+                Some conditions show elevated risk. Focus on preventive measures:<br>
+                • Regular exercise and healthy diet<br>
+                • Stress management<br>
+                • Monitor key health indicators
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div class="info-box">
+                <strong>✅ Low Risk Profile</strong><br>
+                Your current risk profile appears favorable. Maintain healthy habits:<br>
+                • Continue current lifestyle<br>
+                • Regular health check-ups<br>
+                • Stay informed about preventive care
+            </div>
+            """, unsafe_allow_html=True)
+    
+    # Footer with disclaimer
+    st.markdown("---")
+    st.markdown("""
+    <div style="text-align: center; color: #7f8c8d; font-size: 0.9rem;">
+        <strong>⚠️ Medical Disclaimer:</strong> This calculator is for educational purposes only. 
+        Results are based on Taiwan Biobank population data and represent statistical associations, 
+        not individual predictions. Risk factors interact in complex ways not fully captured by 
+        this model. Always consult healthcare professionals for personal medical advice, diagnosis, 
+        and treatment decisions.
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Data source and methodology
+    st.markdown("""
+    <div style="text-align: center; color: #95a5a6; font-size: 0.8rem; margin-top: 1rem;">
+        <em><strong>Methodology:</strong> Risk calculations use hazard ratios from Taiwan Biobank Model 1<br>
+        Baseline population: 60-69 bpm, male, never smoker, never drinker<br>
+        Continuous variables (age, BMI) calculated as HR^value relative to baseline<br>
+        Total risk = HR_heartrate × HR_age^age × HR_gender × HR_BMI^BMI × HR_smoking × HR_alcohol</em>
+    </div>
+    """, unsafe_allow_html=True)
+
+if __name__ == "__main__":
+    main()
