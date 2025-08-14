@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
 """
 Created on Thu Aug 14 15:52:58 2025
+Updated on Thu Aug 14 16:20 2025
 
 @author: chun5
+
+Heart Rate Risk Percentile Calculator
+Shows user's risk percentile within their age/gender group
 """
 
 import streamlit as st
@@ -12,11 +16,10 @@ import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 import math
-from scipy import stats
 
 # Page configuration
 st.set_page_config(
-    page_title="❤️ Heart Rate Risk Calculator",
+    page_title="❤️ Heart Rate Risk Percentile Calculator",
     page_icon="❤️",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -44,7 +47,7 @@ st.markdown("""
     
     .percentile-card {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 1.5rem;
+        padding: 2rem;
         border-radius: 15px;
         color: white;
         text-align: center;
@@ -53,7 +56,7 @@ st.markdown("""
     }
     
     .high-risk-card {
-        background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+        background: linear-gradient(135deg, #ff7675 0%, #e84393 100%);
         padding: 1.5rem;
         border-radius: 15px;
         color: white;
@@ -63,7 +66,7 @@ st.markdown("""
     }
     
     .moderate-risk-card {
-        background: linear-gradient(135deg, #fdcb6e 0%, #f39c12 100%);
+        background: linear-gradient(135deg, #fdcb6e 0%, #e17055 100%);
         padding: 1.5rem;
         border-radius: 15px;
         color: white;
@@ -73,30 +76,13 @@ st.markdown("""
     }
     
     .low-risk-card {
-        background: linear-gradient(135deg, #00b894 0%, #27ae60 100%);
+        background: linear-gradient(135deg, #00b894 0%, #55a3ff 100%);
         padding: 1.5rem;
         border-radius: 15px;
         color: white;
         text-align: center;
         margin: 1rem 0;
         box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-    }
-    
-    .metric-card {
-        background: white;
-        padding: 1rem;
-        border-radius: 10px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-        border-left: 4px solid #3498db;
-        margin: 0.5rem 0;
-    }
-    
-    .warning-box {
-        background: linear-gradient(135deg, #ffeaa7 0%, #fab1a0 100%);
-        padding: 1rem;
-        border-radius: 10px;
-        margin: 1rem 0;
-        border-left: 4px solid #e17055;
     }
     
     .info-box {
@@ -106,930 +92,452 @@ st.markdown("""
         margin: 1rem 0;
         border-left: 4px solid #00b894;
     }
+    
+    .warning-box {
+        background: linear-gradient(135deg, #ffeaa7 0%, #fab1a0 100%);
+        padding: 1rem;
+        border-radius: 10px;
+        margin: 1rem 0;
+        border-left: 4px solid #e17055;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# Load and parse the Cox regression model coefficients
-@st.cache_data
-def load_model_coefficients():
-    """Load the Cox regression model coefficients from the CSV data"""
-    # The CSV data from TWB_model1_sig.csv (same as before)
-    csv_data = """Daisease namw,Variable,Coef
-Atrial Fibrillation,HR_cat60-69,REF
-Atrial Fibrillation,HR_cat<60,0.245753
-Atrial Fibrillation,HR_cat70-79,0.007172
-Atrial Fibrillation,HR_cat80-89,0.285073
-Atrial Fibrillation,HR_cat>=90,0.626423
-Atrial Fibrillation,AGE,0.092884
-Atrial Fibrillation,MALE,REF
-Atrial Fibrillation,FERMALE,-0.826015
-Atrial Fibrillation,BMI,0.052884
-Atrial Fibrillation,Nerver_smoke,REF
-Atrial Fibrillation,Ever_smoke,0.040906
-Atrial Fibrillation,Now_smoke,-0.22748
-Atrial Fibrillation,Nerver_drink,REF
-Atrial Fibrillation,Ever_drink,0.114189
-Atrial Fibrillation,Now_drink,0.079308
-Anxiety,HR_cat60-69,REF
-Anxiety,HR_cat<60,-0.0147946
-Anxiety,HR_cat70-79,0.0331788
-Anxiety,HR_cat80-89,0.079773
-Anxiety,HR_cat>=90,0.0326789
-Anxiety,AGE,REF
-Anxiety,MALE,0.0221697
-Anxiety,FERMALE,0.5610132
-Anxiety,BMI,-0.0212976
-Anxiety,Nerver_smoke,REF
-Anxiety,Ever_smoke,0.1371077
-Anxiety,Now_smoke,0.1912624
-Anxiety,Nerver_drink,REF
-Anxiety,Ever_drink,0.2342184
-Anxiety,Now_drink,0.145487"""
-    
-    from io import StringIO
-    df = pd.read_csv(StringIO(csv_data))
-    df.columns = ['Disease_Name', 'Variable', 'Coef']
-    
-    return df
-
-# TODO: This will be replaced with actual LP distribution data
-@st.cache_data
-def load_lp_distributions():
-    """
-    Load Linear Predictor (LP) score distributions by age-gender cohorts.
-    
-    This is a MOCK function that generates sample data.
-    Replace this with actual LP distribution data when available.
-    
-    Expected data structure:
-    {
-        'disease_name': {
-            'age_group': {
-                'gender': {
-                    'lp_scores': [array of LP scores],
-                    'percentiles': [1, 5, 10, 25, 50, 75, 90, 95, 99]
-                }
-            }
-        }
-    }
-    """
-    
-    # Mock data structure - replace with actual data loading
-    diseases = ['Atrial Fibrillation', 'Anxiety', 'Type 2 Diabetes', 'Heart Failure']
-    age_groups = ['20-29', '30-39', '40-49', '50-59', '60-69', '70+']
-    genders = ['Male', 'Female']
-    
-    lp_distributions = {}
-    
-    for disease in diseases:
-        lp_distributions[disease] = {}
-        for age_group in age_groups:
-            lp_distributions[disease][age_group] = {}
-            for gender in genders:
-                # Generate mock LP distribution
-                # In reality, these would be calculated from actual patient data
-                n_samples = 1000
-                
-                # Create realistic LP distributions with some variation by demographics
-                base_mean = 0.0
-                if gender == 'Female' and disease == 'Anxiety':
-                    base_mean = 0.3  # Higher anxiety risk for females
-                elif gender == 'Male' and disease == 'Atrial Fibrillation':
-                    base_mean = 0.2  # Higher AF risk for males
-                
-                # Age effect
-                age_mid = int(age_group.split('-')[0]) if '-' in age_group else 70
-                age_effect = (age_mid - 40) * 0.01  # Increase with age
-                
-                mean_lp = base_mean + age_effect
-                std_lp = 0.5
-                
-                # Generate LP scores
-                lp_scores = np.random.normal(mean_lp, std_lp, n_samples)
-                
-                # Calculate percentiles
-                percentiles = [1, 5, 10, 25, 50, 75, 90, 95, 99]
-                percentile_values = np.percentile(lp_scores, percentiles)
-                
-                lp_distributions[disease][age_group][gender] = {
-                    'lp_scores': lp_scores,
-                    'percentiles': dict(zip(percentiles, percentile_values)),
-                    'mean': np.mean(lp_scores),
-                    'std': np.std(lp_scores),
-                    'n_samples': n_samples
-                }
-    
-    return lp_distributions
+# Sample diseases (you can modify this list)
+DISEASES = [
+    'Hypertension', 'Type 2 Diabetes', 'Atrial Fibrillation', 
+    'Heart Failure', 'Ischemic Heart Disease', 'Depression',
+    'Anxiety', 'Chronic Kidney Disease', 'Asthma'
+]
 
 def get_age_group(age):
-    """Convert age to age group category"""
+    """Categorize age into groups"""
     if age < 30:
-        return '20-29'
+        return "20-29"
     elif age < 40:
-        return '30-39'
+        return "30-39"
     elif age < 50:
-        return '40-49'
+        return "40-49"
     elif age < 60:
-        return '50-59'
+        return "50-59"
     elif age < 70:
-        return '60-69'
+        return "60-69"
     else:
-        return '70+'
+        return "70+"
 
-def get_heart_rate_category(hr):
-    """Categorize heart rate according to the model categories"""
+def calculate_linear_predictor(age, gender, hr, bmi, smoking_status, drinking_status, disease):
+    """
+    Mock function to calculate linear predictor
+    In your real implementation, this would use actual model coefficients
+    """
+    # Mock linear predictor calculation
+    # Replace this with your actual Cox regression model
+    
+    base_lp = 0.0
+    
+    # Age effect (older = higher risk for most diseases)
+    base_lp += age * 0.02
+    
+    # Gender effect (varies by disease)
+    if gender == "Female":
+        if disease in ["Atrial Fibrillation", "Myocardial Infarction"]:
+            base_lp -= 0.5  # Lower risk for women
+        else:
+            base_lp += 0.1  # Slightly higher risk for some conditions
+    
+    # Heart rate effect
     if hr < 60:
-        return 'HR_cat<60'
+        base_lp += 0.1
     elif 60 <= hr < 70:
-        return 'HR_cat60-69'
+        base_lp += 0.0  # Reference
     elif 70 <= hr < 80:
-        return 'HR_cat70-79'
+        base_lp += 0.15
     elif 80 <= hr < 90:
-        return 'HR_cat80-89'
+        base_lp += 0.3
+    else:  # >= 90
+        base_lp += 0.5
+    
+    # BMI effect
+    base_lp += (bmi - 22) * 0.05
+    
+    # Smoking effect
+    if smoking_status == "Former Smoker":
+        base_lp += 0.2
+    elif smoking_status == "Current Smoker":
+        base_lp += 0.4
+    
+    # Drinking effect
+    if drinking_status == "Former Drinker":
+        base_lp += 0.1
+    elif drinking_status == "Current Drinker":
+        base_lp += 0.05
+    
+    # Add some disease-specific variations
+    disease_multipliers = {
+        'Hypertension': 1.2,
+        'Type 2 Diabetes': 1.1,
+        'Atrial Fibrillation': 0.8,
+        'Heart Failure': 0.9,
+        'Depression': 0.7,
+        'Anxiety': 0.6
+    }
+    
+    base_lp *= disease_multipliers.get(disease, 1.0)
+    
+    # Add some random variation to simulate real data
+    np.random.seed(hash(str(age) + gender + str(hr) + disease) % 2**32)
+    base_lp += np.random.normal(0, 0.1)
+    
+    return base_lp
+
+def get_percentile_in_group(user_lp, age, gender, disease):
+    """
+    Mock function to calculate percentile within age/gender group
+    In your real implementation, this would lookup from your LP distribution data
+    """
+    age_group = get_age_group(age)
+    
+    # Mock: Generate sample distribution for this age/gender/disease group
+    # This simulates the LP distribution you'll provide later
+    np.random.seed(hash(age_group + gender + disease) % 2**32)
+    
+    # Create a mock distribution of linear predictors for this group
+    n_samples = 10000
+    if gender == "Male":
+        group_lps = np.random.normal(-0.2, 0.8, n_samples)
     else:
-        return 'HR_cat>=90'
-
-def calculate_linear_predictor(disease_name, age, gender, hr, bmi, smoking_status, drinking_status, model_df):
-    """
-    Calculate linear predictor (LP) using Cox regression coefficients
-    LP = β₁X₁ + β₂X₂ + ... + βₖXₖ
-    """
-    try:
-        # Filter coefficients for this disease
-        disease_coefs = model_df[model_df['Disease_Name'] == disease_name].copy()
-        
-        if disease_coefs.empty:
-            return None
-        
-        # Initialize linear predictor
-        lp = 0.0
-        
-        # Heart Rate Category (reference is HR_cat60-69)
-        hr_cat = get_heart_rate_category(hr)
-        hr_coef = disease_coefs[disease_coefs['Variable'] == hr_cat]
-        if not hr_coef.empty and hr_coef.iloc[0]['Coef'] != 'REF':
-            lp += float(hr_coef.iloc[0]['Coef'])
-        
-        # Age (continuous variable)
-        age_coef = disease_coefs[disease_coefs['Variable'] == 'AGE']
-        if not age_coef.empty and age_coef.iloc[0]['Coef'] != 'REF':
-            lp += float(age_coef.iloc[0]['Coef']) * age
-        
-        # Gender (reference is MALE)
-        if gender == 'Female':
-            gender_coef = disease_coefs[disease_coefs['Variable'] == 'FERMALE']
-            if not gender_coef.empty and gender_coef.iloc[0]['Coef'] != 'REF':
-                lp += float(gender_coef.iloc[0]['Coef'])
-        
-        # BMI (continuous variable)
-        bmi_coef = disease_coefs[disease_coefs['Variable'] == 'BMI']
-        if not bmi_coef.empty and bmi_coef.iloc[0]['Coef'] != 'REF':
-            lp += float(bmi_coef.iloc[0]['Coef']) * bmi
-        
-        # Smoking Status (reference is Never_smoke)
-        if smoking_status == 'Former Smoker':
-            smoke_coef = disease_coefs[disease_coefs['Variable'] == 'Ever_smoke']
-            if not smoke_coef.empty and smoke_coef.iloc[0]['Coef'] != 'REF':
-                lp += float(smoke_coef.iloc[0]['Coef'])
-        elif smoking_status == 'Current Smoker':
-            smoke_coef = disease_coefs[disease_coefs['Variable'] == 'Now_smoke']
-            if not smoke_coef.empty and smoke_coef.iloc[0]['Coef'] != 'REF':
-                lp += float(smoke_coef.iloc[0]['Coef'])
-        
-        # Drinking Status (reference is Never_drink)
-        if drinking_status == 'Former Drinker':
-            drink_coef = disease_coefs[disease_coefs['Variable'] == 'Ever_drink']
-            if not drink_coef.empty and drink_coef.iloc[0]['Coef'] != 'REF':
-                lp += float(drink_coef.iloc[0]['Coef'])
-        elif drinking_status == 'Current Drinker':
-            drink_coef = disease_coefs[disease_coefs['Variable'] == 'Now_drink']
-            if not drink_coef.empty and drink_coef.iloc[0]['Coef'] != 'REF':
-                lp += float(drink_coef.iloc[0]['Coef'])
-        
-        return lp
+        group_lps = np.random.normal(-0.1, 0.75, n_samples)
     
-    except Exception as e:
-        st.error(f"Error calculating linear predictor for {disease_name}: {str(e)}")
-        return None
-
-def calculate_percentile_rank(user_lp, lp_distribution):
-    """
-    Calculate what percentile the user's LP score falls into
-    within their demographic cohort
-    """
-    if user_lp is None or lp_distribution is None:
-        return None
+    # Age adjustment for the group distribution
+    age_mid = {"20-29": 25, "30-39": 35, "40-49": 45, "50-59": 55, "60-69": 65, "70+": 75}[age_group]
+    group_lps += (age_mid - 45) * 0.01
     
-    lp_scores = lp_distribution['lp_scores']
-    percentile_rank = stats.percentileofscore(lp_scores, user_lp, kind='rank')
+    # Calculate percentile
+    percentile = (np.sum(group_lps < user_lp) / len(group_lps)) * 100
     
-    return percentile_rank
+    return min(99.9, max(0.1, percentile))
 
-def get_risk_level_from_percentile(percentile_rank):
-    """Categorize risk level based on percentile rank"""
-    if percentile_rank >= 90:
-        return "High Risk", "high-risk-card"
-    elif percentile_rank >= 75:
-        return "Moderate-High Risk", "moderate-risk-card"
-    elif percentile_rank >= 50:
-        return "Average Risk", "percentile-card"
+def get_risk_interpretation(percentile):
+    """Get risk level and color based on percentile"""
+    if percentile >= 90:
+        return "Very High Risk", "#e74c3c", "⚠️"
+    elif percentile >= 75:
+        return "High Risk", "#e67e22", "🔶"
+    elif percentile >= 50:
+        return "Moderate Risk", "#f39c12", "🟡"
+    elif percentile >= 25:
+        return "Low-Moderate Risk", "#27ae60", "🟢"
     else:
-        return "Below Average Risk", "low-risk-card"
+        return "Low Risk", "#2ecc71", "✅"
 
 def categorize_diseases(disease_name):
     """Categorize diseases for filtering"""
-    cardiovascular_diseases = [
-        'Atrial Fibrillation', 'Heart Failure', 'Myocardial Infarction', 
-        'Cardiac Arrhythmia', 'Ischemic Heart Disease', 'Angina Pectoris', 
-        'Atherosclerosis', 'Hypertension', 'Ischemic Stroke'
-    ]
+    cardiovascular = ['Hypertension', 'Atrial Fibrillation', 'Heart Failure', 'Ischemic Heart Disease']
+    metabolic = ['Type 2 Diabetes', 'Chronic Kidney Disease']
+    mental_health = ['Depression', 'Anxiety']
+    respiratory = ['Asthma']
     
-    metabolic_diseases = [
-        'Type 2 Diabetes', 'Chronic Kidney Disease'
-    ]
-    
-    mental_health = [
-        'Anxiety', 'Depression'
-    ]
-    
-    other_conditions = [
-        'GERD', 'Anemia', 'Asthma', 'Migraine', "Parkinson's Disease"
-    ]
-    
-    if disease_name in cardiovascular_diseases:
+    if disease_name in cardiovascular:
         return 'Cardiovascular'
-    elif disease_name in metabolic_diseases:
+    elif disease_name in metabolic:
         return 'Metabolic'
     elif disease_name in mental_health:
         return 'Mental Health'
+    elif disease_name in respiratory:
+        return 'Respiratory'
     else:
-        return 'Other Conditions'
+        return 'Other'
 
 def main():
-    # Load model coefficients and LP distributions
-    model_df = load_model_coefficients()
-    lp_distributions = load_lp_distributions()
-    
-    # Get available diseases (intersection of model and LP data)
-    model_diseases = set(model_df['Disease_Name'].unique())
-    lp_diseases = set(lp_distributions.keys())
-    available_diseases = list(model_diseases.intersection(lp_diseases))
-    
     # Header
-    st.markdown('<h1 class="main-header">❤️ Heart Rate Risk Calculator</h1>', unsafe_allow_html=True)
-    st.markdown('<p class="sub-header">Discover your risk percentile within your age-gender cohort</p>', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-header">❤️ Heart Rate Risk Percentile Calculator</h1>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-header">Discover your risk percentile within your age and gender group</p>', unsafe_allow_html=True)
     
     # Sidebar for inputs
     with st.sidebar:
-        st.markdown("### 📊 Input Parameters")
+        st.markdown("### 📊 Your Information")
         
         # Personal information
-        age = st.slider("Age", 20, 90, 45, help="Your current age")
+        age = st.slider("Age", 20, 80, 45, help="Your current age")
         gender = st.selectbox("Gender", ["Male", "Female"], help="Biological sex")
         bmi = st.slider("BMI", 15.0, 40.0, 24.0, step=0.1, help="Body Mass Index")
         
         # Heart rate
-        st.markdown("### 💓 Heart Rate Information")
+        st.markdown("### 💓 Heart Rate")
         current_hr = st.slider(
-            "Current Resting Heart Rate (bpm)", 
+            "Resting Heart Rate (bpm)", 
             40, 120, 72, 
-            help="Your current resting heart rate in beats per minute"
+            help="Your resting heart rate in beats per minute"
         )
         
         # Lifestyle factors
-        st.markdown("### 🚬 Lifestyle Factors")
+        st.markdown("### 🚬 Lifestyle")
         smoking_status = st.selectbox(
             "Smoking Status", 
-            ["Never Smoker", "Former Smoker", "Current Smoker"],
-            help="Your smoking history"
+            ["Never Smoker", "Former Smoker", "Current Smoker"]
         )
         
         drinking_status = st.selectbox(
             "Drinking Status",
-            ["Never Drinker", "Former Drinker", "Current Drinker"],
-            help="Your alcohol consumption history"
+            ["Never Drinker", "Former Drinker", "Current Drinker"]
         )
         
-        # Disease category filter
-        st.markdown("### 🔍 Filter by Category")
-        all_categories = ['Cardiovascular', 'Metabolic', 'Mental Health', 'Other Conditions']
-        selected_categories = st.multiselect(
-            "Select disease categories to display:",
-            all_categories,
-            default=['Cardiovascular', 'Mental Health']
+        # Disease selection
+        st.markdown("### 🎯 Focus Diseases")
+        selected_diseases = st.multiselect(
+            "Select diseases to analyze:",
+            DISEASES,
+            default=['Hypertension', 'Type 2 Diabetes', 'Heart Failure', 'Depression'],
+            help="Choose which diseases to assess your risk for"
         )
-    
-    # Determine user's demographic cohort
-    age_group = get_age_group(age)
     
     # Main content area
-    col1, col2 = st.columns([2, 1])
+    if not selected_diseases:
+        st.warning("Please select at least one disease to analyze.")
+        return
+    
+    # Calculate percentiles for selected diseases
+    results = []
+    for disease in selected_diseases:
+        user_lp = calculate_linear_predictor(
+            age, gender, current_hr, bmi, smoking_status, drinking_status, disease
+        )
+        percentile = get_percentile_in_group(user_lp, age, gender, disease)
+        risk_level, color, emoji = get_risk_interpretation(percentile)
+        
+        results.append({
+            'disease': disease,
+            'percentile': percentile,
+            'risk_level': risk_level,
+            'color': color,
+            'emoji': emoji,
+            'category': categorize_diseases(disease)
+        })
+    
+    # Sort results by percentile (highest first)
+    results.sort(key=lambda x: x['percentile'], reverse=True)
+    
+    # Display results
+    age_group = get_age_group(age)
+    st.markdown(f"### 📈 Your Risk Profile Among {gender}s Aged {age_group}")
+    
+    # Summary cards
+    col1, col2, col3 = st.columns(3)
+    
+    high_risk_count = sum(1 for r in results if r['percentile'] >= 75)
+    moderate_risk_count = sum(1 for r in results if 50 <= r['percentile'] < 75)
+    low_risk_count = sum(1 for r in results if r['percentile'] < 50)
     
     with col1:
-        st.markdown("### 📊 Your Risk Percentiles")
-        st.markdown(f"**Your Demographic Cohort:** {gender}s aged {age_group}")
-        
-        # Calculate percentile ranks for all diseases
-        percentile_results = {}
-        filtered_diseases = []
-        
-        for disease in available_diseases:
-            category = categorize_diseases(disease)
-            if category in selected_categories:
-                filtered_diseases.append(disease)
-                
-                # Calculate user's linear predictor
-                user_lp = calculate_linear_predictor(
-                    disease, age, gender, current_hr, bmi, 
-                    smoking_status, drinking_status, model_df
-                )
-                
-                # Get LP distribution for user's demographic
-                if (disease in lp_distributions and 
-                    age_group in lp_distributions[disease] and
-                    gender in lp_distributions[disease][age_group]):
-                    
-                    lp_dist = lp_distributions[disease][age_group][gender]
-                    percentile_rank = calculate_percentile_rank(user_lp, lp_dist)
-                    
-                    if percentile_rank is not None:
-                        percentile_results[disease] = {
-                            'percentile': percentile_rank,
-                            'lp_score': user_lp,
-                            'cohort_mean': lp_dist['mean'],
-                            'cohort_std': lp_dist['std'],
-                            'n_samples': lp_dist['n_samples']
-                        }
-        
-        if percentile_results:
-            # Create percentile visualization
-            diseases_list = list(percentile_results.keys())
-            percentiles = [percentile_results[disease]['percentile'] for disease in diseases_list]
-            
-            # Sort by percentile for better visualization
-            sorted_data = sorted(zip(diseases_list, percentiles), key=lambda x: x[1], reverse=True)
-            diseases_sorted, percentiles_sorted = zip(*sorted_data)
-            
-            # Color code based on risk level
-            colors = []
-            for percentile in percentiles_sorted:
-                if percentile >= 90:
-                    colors.append('#e74c3c')  # Red - High risk
-                elif percentile >= 75:
-                    colors.append('#f39c12')  # Orange - Moderate-high risk
-                elif percentile >= 50:
-                    colors.append('#3498db')  # Blue - Average risk
-                else:
-                    colors.append('#27ae60')  # Green - Below average risk
-            
-            # Bar chart
-            fig = go.Figure(data=[
-                go.Bar(
-                    y=diseases_sorted,
-                    x=percentiles_sorted,
-                    orientation='h',
-                    marker_color=colors,
-                    text=[f"{percentile:.1f}%" for percentile in percentiles_sorted],
-                    textposition='auto',
-                    hovertemplate='<b>%{y}</b><br>Percentile: %{x:.1f}% in your cohort<extra></extra>'
-                )
-            ])
-            
-            fig.update_layout(
-                title=f"Your Risk Percentiles vs {gender}s aged {age_group}",
-                xaxis_title="Percentile Rank (%)",
-                yaxis_title="Diseases",
-                height=max(400, len(diseases_list) * 30),
-                showlegend=False,
-                plot_bgcolor='rgba(0,0,0,0)',
-                paper_bgcolor='rgba(0,0,0,0)',
-                font=dict(size=10)
-            )
-            
-            # Add reference lines
-            fig.add_vline(x=50, line_dash="dash", line_color="gray", 
-                         annotation_text="Average (50%)", annotation_position="top")
-            fig.add_vline(x=75, line_dash="dash", line_color="orange", 
-                         annotation_text="75th percentile", annotation_position="top")
-            fig.add_vline(x=90, line_dash="dash", line_color="red", 
-                         annotation_text="90th percentile", annotation_position="top")
-            
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Risk level summary
-            st.markdown("### 🎯 Risk Level Summary")
-            cols = st.columns(4)
-            
-            high_risk = sum(1 for p in percentiles if p >= 90)
-            mod_high_risk = sum(1 for p in percentiles if 75 <= p < 90)
-            average_risk = sum(1 for p in percentiles if 50 <= p < 75)
-            below_avg_risk = sum(1 for p in percentiles if p < 50)
-            
-            with cols[0]:
-                st.metric("🔴 High Risk (≥90%)", high_risk)
-            with cols[1]:
-                st.metric("🟡 Moderate-High (75-89%)", mod_high_risk)
-            with cols[2]:
-                st.metric("🔵 Average (50-74%)", average_risk)
-            with cols[3]:
-                st.metric("🟢 Below Average (<50%)", below_avg_risk)
-            
-            # Detailed percentile cards
-            st.markdown("### 📋 Detailed Risk Assessment")
-            
-            for disease in diseases_sorted:
-                result = percentile_results[disease]
-                percentile = result['percentile']
-                risk_level, card_class = get_risk_level_from_percentile(percentile)
-                
-                st.markdown(f"""
-                <div class="{card_class}">
-                    <h3>{disease}</h3>
-                    <h2>{percentile:.1f}th percentile</h2>
-                    <p><strong>{risk_level}</strong></p>
-                    <p>You are at higher risk than {percentile:.1f}% of {gender.lower()}s aged {age_group}</p>
-                    <small>Based on {result['n_samples']:,} individuals in your demographic cohort</small>
-                </div>
-                """, unsafe_allow_html=True)
-        
-        else:
-            st.warning("No valid percentile calculations available. Please check your input parameters.")
+        st.markdown(f"""
+        <div class="high-risk-card">
+            <h3>🔴 High Risk</h3>
+            <h2>{high_risk_count}</h2>
+            <p>conditions ≥75th percentile</p>
+        </div>
+        """, unsafe_allow_html=True)
     
     with col2:
-        st.markdown("### 💡 Heart Rate Status")
-        
-        # Heart rate category display
-        hr_category = get_heart_rate_category(current_hr)
-        category_display = {
-            'HR_cat<60': '< 60 bpm (Bradycardia)',
-            'HR_cat60-69': '60-69 bpm (Normal)',
-            'HR_cat70-79': '70-79 bpm (Normal-High)',
-            'HR_cat80-89': '80-89 bpm (Elevated)',
-            'HR_cat>=90': '≥ 90 bpm (High)'
-        }
-        
         st.markdown(f"""
-        <div class="info-box">
-            <h4>📊 Your Heart Rate Category</h4>
-            <p><strong>{current_hr} bpm</strong></p>
-            <p>{category_display.get(hr_category, hr_category)}</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Demographic cohort information
-        st.markdown("### 👥 Your Demographic Cohort")
-        st.markdown(f"""
-        <div class="info-box">
-            <strong>Comparison Group:</strong><br>
-            • Gender: {gender}<br>
-            • Age Group: {age_group}<br>
-            • Cohort Size: ~1,000 individuals<br><br>
-            <em>Your percentile rank shows where you stand compared to others with similar demographics.</em>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Personal profile summary
-        st.markdown("### 👤 Your Profile")
-        st.markdown(f"""
-        <div class="info-box">
-            <strong>Personal Details:</strong><br>
-            • Age: {age} years<br>
-            • Gender: {gender}<br>
-            • BMI: {bmi:.1f}<br>
-            • Heart Rate: {current_hr} bpm<br>
-            • Smoking: {smoking_status}<br>
-            • Drinking: {drinking_status}
+        <div class="moderate-risk-card">
+            <h3>🟡 Moderate Risk</h3>
+            <h2>{moderate_risk_count}</h2>
+            <p>conditions 50-74th percentile</p>
         </div>
         """, unsafe_allow_html=True)
     
-    # Percentile distribution visualization
-    if percentile_results:
-        st.markdown("### 📈 Risk Score Distributions")
-        
-        # Select a disease for detailed distribution view
-        selected_disease = st.selectbox(
-            "Select a disease to view detailed risk distribution:",
-            list(percentile_results.keys())
+    with col3:
+        st.markdown(f"""
+        <div class="low-risk-card">
+            <h3>🟢 Lower Risk</h3>
+            <h2>{low_risk_count}</h2>
+            <p>conditions <50th percentile</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Detailed results
+    st.markdown("### 📋 Detailed Risk Assessment")
+    
+    # Create visualization
+    diseases_list = [r['disease'] for r in results]
+    percentiles = [r['percentile'] for r in results]
+    colors = [r['color'] for r in results]
+    
+    fig = go.Figure(data=[
+        go.Bar(
+            y=diseases_list,
+            x=percentiles,
+            orientation='h',
+            marker_color=colors,
+            text=[f"{p:.1f}%" for p in percentiles],
+            textposition='auto',
+            hovertemplate='<b>%{y}</b><br>Percentile: %{x:.1f}%<br>Among %{customdata}<extra></extra>',
+            customdata=[f"{gender}s aged {age_group}"] * len(diseases_list)
         )
-        
-        if selected_disease:
-            result = percentile_results[selected_disease]
-            disease_lp_dist = lp_distributions[selected_disease][age_group][gender]
-            
-            # Create distribution plot
-            fig = go.Figure()
-            
-            # Population distribution
-            fig.add_trace(go.Histogram(
-                x=disease_lp_dist['lp_scores'],
-                nbinsx=50,
-                name=f"{gender}s aged {age_group}",
-                opacity=0.7,
-                yaxis='y',
-                histnorm='probability'
-            ))
-            
-            # User's score
-            fig.add_vline(
-                x=result['lp_score'],
-                line_dash="solid",
-                line_color="red",
-                line_width=3,
-                annotation_text=f"Your Score<br>({result['percentile']:.1f}th percentile)",
-                annotation_position="top"
-            )
-            
-            # Percentile markers
-            percentile_markers = [25, 50, 75, 90]
-            for p in percentile_markers:
-                p_value = np.percentile(disease_lp_dist['lp_scores'], p)
-                fig.add_vline(
-                    x=p_value,
-                    line_dash="dash",
-                    line_color="gray",
-                    opacity=0.5,
-                    annotation_text=f"{p}%",
-                    annotation_position="top"
-                )
-            
-            fig.update_layout(
-                title=f"{selected_disease} - Risk Score Distribution<br><sub>{gender}s aged {age_group}</sub>",
-                xaxis_title="Linear Predictor (Risk Score)",
-                yaxis_title="Probability Density",
-                height=400,
-                showlegend=False
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Interpretation
-            st.markdown(f"""
-            <div class="info-box">
-                <strong>📖 Interpretation for {selected_disease}:</strong><br>
-                • Your risk score: {result['lp_score']:.3f}<br>
-                • Cohort average: {result['cohort_mean']:.3f}<br>
-                • You are at the {result['percentile']:.1f}th percentile<br>
-                • This means you have higher risk than {result['percentile']:.1f}% of {gender.lower()}s in your age group
-            </div>
-            """, unsafe_allow_html=True)
+    ])
     
-    # Recommendations based on percentile results
-    st.markdown("### 💊 Personalized Recommendations")
+    fig.update_layout(
+        title=f"Your Risk Percentiles Among {gender}s Aged {age_group}",
+        xaxis_title="Percentile Within Your Age/Gender Group",
+        yaxis_title="Health Conditions",
+        height=max(400, len(diseases_list) * 40),
+        showlegend=False,
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)'
+    )
     
-    if percentile_results:
-        high_percentile_diseases = [
-            disease for disease, result in percentile_results.items() 
-            if result['percentile'] >= 90
-        ]
-        
-        moderate_percentile_diseases = [
-            disease for disease, result in percentile_results.items() 
-            if 75 <= result['percentile'] < 90
-        ]
-        
-        if high_percentile_diseases:
-            st.markdown(f"""
-            <div class="warning-box">
-                <strong>⚠️ High Risk Conditions (≥90th percentile)</strong><br>
-                You are in the top 10% risk group for: <strong>{', '.join(high_percentile_diseases[:3])}</strong>
-                {' and others' if len(high_percentile_diseases) > 3 else ''}.<br><br>
-                <strong>Immediate Actions:</strong><br>
-                • Consult with a healthcare provider promptly<br>
-                • Consider specialized screening for high-risk conditions<br>
-                • Discuss preventive treatment options<br>
-                • Implement aggressive lifestyle modifications
-            </div>
-            """, unsafe_allow_html=True)
-        elif moderate_percentile_diseases:
-            st.markdown(f"""
-            <div class="warning-box">
-                <strong>⚡ Moderate-High Risk (75-89th percentile)</strong><br>
-                You are in the top 25% risk group for: <strong>{', '.join(moderate_percentile_diseases[:3])}</strong>
-                {' and others' if len(moderate_percentile_diseases) > 3 else ''}.<br><br>
-                <strong>Recommended Actions:</strong><br>
-                • Schedule regular health check-ups<br>
-                • Focus on modifiable risk factors<br>
-                • Consider enhanced monitoring for these conditions<br>
-                • Maintain healthy lifestyle habits
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            avg_percentile = np.mean([result['percentile'] for result in percentile_results.values()])
-            st.markdown(f"""
-            <div class="info-box">
-                <strong>✅ Average to Low Risk Profile</strong><br>
-                Your average risk percentile is {avg_percentile:.1f}%, indicating relatively low risk compared to your demographic peers.<br><br>
-                <strong>Maintain Current Health:</strong><br>
-                • Continue current healthy lifestyle<br>
-                • Regular preventive care and health screenings<br>
-                • Stay physically active and maintain healthy diet<br>
-                • Monitor key health metrics regularly
-            </div>
-            """, unsafe_allow_html=True)
-        
-        # Heart rate specific recommendations
-        if current_hr >= 90:
-            st.markdown("""
-            <div class="warning-box">
-                <strong>🏃 Heart Rate Optimization Priority</strong><br>
-                Your resting heart rate (≥90 bpm) may be contributing to your higher percentile rankings. Focus on:<br>
-                • Aerobic exercise training (150+ minutes/week)<br>
-                • Stress management techniques (meditation, yoga)<br>
-                • Adequate sleep (7-9 hours nightly)<br>
-                • Limit caffeine and stimulants<br>
-                • Medical evaluation for underlying causes
-            </div>
-            """, unsafe_allow_html=True)
-        elif current_hr >= 80:
-            st.markdown("""
-            <div class="info-box">
-                <strong>💓 Heart Rate Improvement Opportunity</strong><br>
-                Optimizing your heart rate could improve your percentile rankings:<br>
-                • Regular cardiovascular exercise<br>
-                • Stress reduction techniques<br>
-                • Maintain healthy weight<br>
-                • Stay well-hydrated and rested
-            </div>
-            """, unsafe_allow_html=True)
+    # Add reference lines
+    fig.add_vline(x=50, line_dash="dash", line_color="gray", annotation_text="Average (50th percentile)")
+    fig.add_vline(x=75, line_dash="dash", line_color="orange", annotation_text="High Risk (75th percentile)")
+    fig.add_vline(x=90, line_dash="dash", line_color="red", annotation_text="Very High Risk (90th percentile)")
     
-    # Detailed risk breakdown table
-    if percentile_results:
-        st.markdown("### 📋 Complete Risk Profile")
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Individual disease cards
+    st.markdown("### 📊 Individual Risk Analysis")
+    
+    for i, result in enumerate(results):
+        col1, col2 = st.columns([3, 1])
         
-        # Create comprehensive results table
-        results_data = []
-        for disease, result in percentile_results.items():
-            category = categorize_diseases(disease)
-            risk_level, _ = get_risk_level_from_percentile(result['percentile'])
-            
-            # Calculate how many people user outranks
-            outranks_count = int(result['percentile'] / 100 * result['n_samples'])
-            
-            results_data.append({
-                'Disease': disease,
-                'Category': category,
-                'Your Percentile': f"{result['percentile']:.1f}%",
-                'Risk Level': risk_level,
-                'Outranks': f"{outranks_count:,} of {result['n_samples']:,}",
-                'Your LP Score': f"{result['lp_score']:.3f}",
-                'Cohort Average': f"{result['cohort_mean']:.3f}"
-            })
-        
-        results_df = pd.DataFrame(results_data)
-        
-        # Sort by percentile
-        results_df = results_df.sort_values('Your Percentile', ascending=False, 
-                                          key=lambda x: x.str.replace('%', '').astype(float))
-        
-        # Style the dataframe
-        def style_percentile_table(val):
-            if 'High Risk' in str(val):
-                return 'background-color: #ffebee; color: #c62828'
-            elif 'Moderate-High' in str(val):
-                return 'background-color: #fff3e0; color: #ef6c00'
-            elif 'Average Risk' in str(val):
-                return 'background-color: #e3f2fd; color: #1565c0'
-            elif 'Below Average' in str(val):
-                return 'background-color: #e8f5e8; color: #2e7d32'
+        with col1:
+            percentile = result['percentile']
+            if percentile >= 90:
+                card_class = "high-risk-card"
+                interpretation = f"You are in the **top {100-percentile:.1f}%** of {gender.lower()}s aged {age_group} for {result['disease']} risk."
+                action = "⚠️ **Strongly consider** consulting with a healthcare provider about prevention strategies."
+            elif percentile >= 75:
+                card_class = "moderate-risk-card"
+                interpretation = f"You are in the **top {100-percentile:.1f}%** of {gender.lower()}s aged {age_group} for {result['disease']} risk."
+                action = "🔶 **Consider** discussing this with your healthcare provider during routine visits."
+            elif percentile >= 50:
+                card_class = "percentile-card"
+                interpretation = f"Your {result['disease']} risk is **above average** (top {100-percentile:.1f}%) among {gender.lower()}s aged {age_group}."
+                action = "🟡 **Monitor** this condition and maintain healthy lifestyle habits."
             else:
-                return ''
-        
-        styled_results = results_df.style.applymap(style_percentile_table, subset=['Risk Level'])
-        st.dataframe(styled_results, use_container_width=True, hide_index=True)
-        
-        # Summary statistics
-        st.markdown("### 📊 Cohort Comparison Summary")
-        
-        cols = st.columns(4)
-        avg_percentile = np.mean([result['percentile'] for result in percentile_results.values()])
-        max_percentile = max([result['percentile'] for result in percentile_results.values()])
-        min_percentile = min([result['percentile'] for result in percentile_results.values()])
-        
-        with cols[0]:
-            st.metric("Average Percentile", f"{avg_percentile:.1f}%")
-        with cols[1]:
-            st.metric("Highest Risk Percentile", f"{max_percentile:.1f}%")
-        with cols[2]:
-            st.metric("Lowest Risk Percentile", f"{min_percentile:.1f}%")
-        with cols[3]:
-            st.metric("Conditions Analyzed", len(percentile_results))
-    
-    # Heart rate sensitivity analysis
-    if percentile_results:
-        st.markdown("### 🔍 Heart Rate Impact Analysis")
-        
-        # Select top diseases for sensitivity analysis
-        top_diseases = sorted(percentile_results.items(), key=lambda x: x[1]['percentile'], reverse=True)[:6]
-        
-        if len(top_diseases) > 0:
-            hr_range = np.arange(50, 101, 5)
+                card_class = "low-risk-card"
+                interpretation = f"Your {result['disease']} risk is **below average** ({percentile:.1f}th percentile) among {gender.lower()}s aged {age_group}."
+                action = "✅ **Continue** your current healthy practices."
             
-            # Calculate how percentiles change with different heart rates
-            fig_sensitivity = make_subplots(
-                rows=2, cols=3,
-                subplot_titles=[disease for disease, _ in top_diseases],
-                vertical_spacing=0.15,
-                horizontal_spacing=0.12
-            )
-            
-            for i, (disease, current_result) in enumerate(top_diseases):
-                row = (i // 3) + 1
-                col = (i % 3) + 1
-                
-                percentile_trends = []
-                for test_hr in hr_range:
-                    # Calculate LP with different HR
-                    test_lp = calculate_linear_predictor(
-                        disease, age, gender, test_hr, bmi, 
-                        smoking_status, drinking_status, model_df
-                    )
-                    
-                    # Calculate percentile with this LP
-                    if (disease in lp_distributions and 
-                        age_group in lp_distributions[disease] and
-                        gender in lp_distributions[disease][age_group]):
-                        
-                        lp_dist = lp_distributions[disease][age_group][gender]
-                        test_percentile = calculate_percentile_rank(test_lp, lp_dist)
-                        percentile_trends.append(test_percentile if test_percentile is not None else 50)
-                    else:
-                        percentile_trends.append(50)
-                
-                # Add reference lines
-                fig_sensitivity.add_hline(
-                    y=50, line_dash="dash", line_color="gray", 
-                    opacity=0.3, row=row, col=col
-                )
-                fig_sensitivity.add_hline(
-                    y=75, line_dash="dash", line_color="orange", 
-                    opacity=0.3, row=row, col=col
-                )
-                fig_sensitivity.add_hline(
-                    y=90, line_dash="dash", line_color="red", 
-                    opacity=0.3, row=row, col=col
-                )
-                
-                # Main trend line
-                fig_sensitivity.add_trace(
-                    go.Scatter(
-                        x=hr_range, 
-                        y=percentile_trends,
-                        mode='lines+markers',
-                        name=disease,
-                        line=dict(width=3),
-                        marker=dict(size=4),
-                        showlegend=False
-                    ),
-                    row=row, col=col
-                )
-                
-                # Current point
-                fig_sensitivity.add_trace(
-                    go.Scatter(
-                        x=[current_hr], 
-                        y=[current_result['percentile']],
-                        mode='markers',
-                        name="Your Current Status",
-                        marker=dict(size=12, color='red', symbol='star'),
-                        showlegend=False,
-                        hovertemplate=f'<b>{disease}</b><br>HR: {current_hr} bpm<br>Percentile: {current_result["percentile"]:.1f}%<extra></extra>'
-                    ),
-                    row=row, col=col
-                )
-            
-            fig_sensitivity.update_layout(
-                height=600,
-                title_text=f"How Heart Rate Affects Your Percentile Rank vs {gender}s aged {age_group}",
-                showlegend=False,
-                font=dict(size=10)
-            )
-            
-            # Update axes
-            for i in range(len(top_diseases)):
-                row = (i // 3) + 1
-                col = (i % 3) + 1
-                fig_sensitivity.update_xaxes(title_text="Heart Rate (bpm)", row=row, col=col)
-                fig_sensitivity.update_yaxes(title_text="Percentile Rank (%)", row=row, col=col)
-            
-            st.plotly_chart(fig_sensitivity, use_container_width=True)
-            
-            # Add interpretation
-            st.markdown("""
-            <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
-                <strong>📖 Sensitivity Analysis Interpretation:</strong><br>
-                • <span style="color: gray;">Gray line (50%)</span>: Average risk in your demographic<br>
-                • <span style="color: orange;">Orange line (75%)</span>: Moderate-high risk threshold<br>
-                • <span style="color: red;">Red line (90%)</span>: High risk threshold<br>
-                • <span style="color: red;">Red star</span>: Your current position<br><br>
-                This shows how optimizing your heart rate could potentially improve your percentile rankings within your demographic cohort.
+            st.markdown(f"""
+            <div class="{card_class}">
+                <h4>{result['emoji']} {result['disease']}</h4>
+                <h3>{percentile:.1f}th Percentile</h3>
+                <p>{interpretation}</p>
+                <p><em>{action}</em></p>
             </div>
             """, unsafe_allow_html=True)
-    
-    # Data source and methodology
-    with st.expander("📊 Methodology & Data Sources"):
-        st.markdown(f"""
-        ### Percentile-Based Risk Assessment Methodology
         
-        **Your Demographic Cohort:**
-        - **Age Group:** {age_group}
-        - **Gender:** {gender}
-        - **Comparison Population:** ~1,000 individuals with similar demographics
-        
-        **Calculation Process:**
-        1. **Linear Predictor (LP) Calculation:** Your risk factors are combined using Cox regression coefficients
-        2. **Cohort Comparison:** Your LP score is compared to the distribution of LP scores in your demographic cohort
-        3. **Percentile Ranking:** Your position in the distribution determines your percentile rank
-        
-        **Percentile Interpretation:**
-        - **90th percentile:** Higher risk than 90% of people in your demographic cohort
-        - **75th percentile:** Higher risk than 75% of people in your demographic cohort
-        - **50th percentile:** Average risk for your demographic cohort
-        - **25th percentile:** Lower risk than 75% of people in your demographic cohort
-        
-        **Risk Categories:**
-        - **High Risk (≥90th percentile):** Top 10% risk group in your cohort
-        - **Moderate-High Risk (75-89th percentile):** Top 25% risk group
-        - **Average Risk (50-74th percentile):** Above average but not high risk
-        - **Below Average Risk (<50th percentile):** Lower than average risk
-        
-        **Model Components:**
-        - **Heart Rate Categories:** <60, 60-69, 70-79, 80-89, ≥90 bpm
-        - **Demographic Factors:** Age, gender, BMI
-        - **Lifestyle Factors:** Smoking status, drinking status
-        
-        **Important Limitations:**
-        - Percentiles are based on population-level data from Taiwan Biobank
-        - Individual risk may vary due to genetic and unmeasured factors
-        - Results show relative risk within demographic cohorts, not absolute risk
-        - Not a substitute for professional medical assessment
-        - Mock data used for demonstration - replace with actual LP distributions
-        
-        **Data Requirements for Implementation:**
-        When implementing with real data, you will need:
-        - Linear predictor score distributions for each disease by age-gender cohorts
-        - Sufficient sample sizes in each demographic group (recommended: >500 per cohort)
-        - Validation of model performance across different demographic groups
-        """)
-    
-    # Implementation notes
-    with st.expander("🔧 Implementation Notes for Developers"):
-        st.markdown("""
-        ### Key Changes from Benchmark Version
-        
-        **Data Structure Required:**
-        ```python
-        lp_distributions = {
-            'disease_name': {
-                'age_group': {  # '20-29', '30-39', '40-49', '50-59', '60-69', '70+'
-                    'gender': {  # 'Male', 'Female'
-                        'lp_scores': [array of LP scores from actual patients],
-                        'percentiles': {1: value, 5: value, ..., 99: value},
-                        'mean': mean_lp_score,
-                        'std': std_lp_score,
-                        'n_samples': number_of_patients
+        with col2:
+            # Mini gauge chart for each disease
+            fig_gauge = go.Figure(go.Indicator(
+                mode="gauge+number",
+                value=percentile,
+                title={'text': f"{result['disease']}<br>Percentile"},
+                domain={'x': [0, 1], 'y': [0, 1]},
+                gauge={
+                    'axis': {'range': [None, 100]},
+                    'bar': {'color': result['color']},
+                    'steps': [
+                        {'range': [0, 25], 'color': "#d5f4e6"},
+                        {'range': [25, 50], 'color': "#ffeeb3"},
+                        {'range': [50, 75], 'color': "#ffccb3"},
+                        {'range': [75, 100], 'color': "#ffb3b3"}
+                    ],
+                    'threshold': {
+                        'line': {'color': "red", 'width': 4},
+                        'thickness': 0.75,
+                        'value': 90
                     }
                 }
-            }
-        }
-        ```
+            ))
+            
+            fig_gauge.update_layout(height=200, margin=dict(l=20, r=20, t=40, b=20))
+            st.plotly_chart(fig_gauge, use_container_width=True)
+    
+    # Personalized recommendations
+    st.markdown("### 💡 Personalized Recommendations")
+    
+    highest_risk = results[0] if results else None
+    
+    if highest_risk and highest_risk['percentile'] >= 90:
+        st.markdown(f"""
+        <div class="warning-box">
+            <strong>🚨 Priority Alert:</strong> Your highest risk is for <strong>{highest_risk['disease']}</strong> 
+            (top {100-highest_risk['percentile']:.1f}% among {gender.lower()}s aged {age_group}).<br><br>
+            <strong>Immediate Actions:</strong><br>
+            • Schedule an appointment with your healthcare provider<br>
+            • Discuss targeted screening and prevention strategies<br>
+            • Focus on lifestyle modifications specific to this condition
+        </div>
+        """, unsafe_allow_html=True)
+    elif highest_risk and highest_risk['percentile'] >= 75:
+        st.markdown(f"""
+        <div class="warning-box">
+            <strong>⚡ Health Focus Area:</strong> Your highest risk is for <strong>{highest_risk['disease']}</strong> 
+            (top {100-highest_risk['percentile']:.1f}% among {gender.lower()}s aged {age_group}).<br><br>
+            <strong>Recommended Actions:</strong><br>
+            • Bring this up during your next healthcare visit<br>
+            • Consider targeted lifestyle improvements<br>
+            • Monitor relevant health markers regularly
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div class="info-box">
+            <strong>✅ Overall Good Profile:</strong> Your risk profile is generally favorable compared to peers in your age/gender group.<br><br>
+            <strong>Maintain Your Health:</strong><br>
+            • Continue your current healthy lifestyle<br>
+            • Keep up with routine preventive care<br>
+            • Stay informed about age-appropriate health screenings
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Heart rate specific advice
+    if current_hr >= 85:
+        st.markdown("""
+        <div class="warning-box">
+            <strong>💓 Heart Rate Focus:</strong> Your resting heart rate is elevated. This may be contributing to higher risk percentiles.<br>
+            <strong>Consider:</strong> Regular cardio exercise, stress management, adequate sleep, and medical evaluation if persistently high.
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Model explanation
+    with st.expander("📚 Understanding Your Results"):
+        st.markdown(f"""
+        ### How Percentiles Work
         
-        **Key Functions to Implement:**
-        1. `load_lp_distributions()` - Load actual LP score distributions from your data
-        2. `calculate_percentile_rank()` - Calculate user's percentile within their cohort
-        3. Ensure sufficient sample sizes in each age-gender-disease combination
+        **Your Comparison Group:** {gender}s aged {age_group}
         
-        **Data Processing Steps:**
-        1. Calculate LP scores for all patients in your dataset using the Cox coefficients
-        2. Group patients by age group and gender
-        3. For each disease-demographic combination, store the LP score distribution
-        4. Calculate and store percentile cutoffs (1st, 5th, 10th, 25th, 50th, 75th, 90th, 95th, 99th)
+        **What Percentiles Mean:**
+        - **50th percentile** = Average risk in your group
+        - **75th percentile** = Higher risk than 75% of your peers
+        - **90th percentile** = Higher risk than 90% of your peers (top 10%)
+        - **25th percentile** = Lower risk than 75% of your peers
         
-        **Validation Recommendations:**
-        - Ensure each cohort has adequate sample size (minimum 100, recommended 500+)
-        - Validate that LP score distributions are reasonable across demographic groups
-        - Consider smoothing or modeling distributions if sample sizes are small
-        - Test edge cases (very young/old, extreme risk factor combinations)
+        **Risk Categories:**
+        - 🔴 **Very High (≥90th percentile):** Top 10% - Consider immediate medical consultation
+        - 🟠 **High (75-89th percentile):** Top 11-25% - Discuss with healthcare provider
+        - 🟡 **Moderate (50-74th percentile):** Above average - Monitor and maintain healthy habits
+        - 🟢 **Low-Moderate (25-49th percentile):** Below average - Continue current practices
+        - ✅ **Low (<25th percentile):** Bottom 25% - Excellent relative risk profile
+        
+        **Factors Considered:**
+        - Age, gender, heart rate, BMI, smoking status, drinking status
+        
+        **Important Notes:**
+        - This shows your risk relative to peers, not absolute risk
+        - Multiple factors contribute to disease risk beyond those measured
+        - Results are for educational purposes and don't replace medical advice
         """)
     
-    # Footer with disclaimer
+    # Footer
     st.markdown("---")
-    st.markdown(f"""
+    st.markdown("""
     <div style="text-align: center; color: #7f8c8d; font-size: 0.9rem;">
-        <strong>⚠️ Medical Disclaimer:</strong> This calculator shows your risk percentile compared to {gender.lower()}s aged {age_group} 
-        using Cox regression model results for educational purposes only. Percentile rankings are based on 
-        population-level data and should not replace professional medical advice. Individual risk factors 
-        and health conditions not included in the model may significantly affect your actual risk. 
-        Always consult with a healthcare provider for personal health assessments and treatment decisions.
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Data source
-    st.markdown(f"""
-    <div style="text-align: center; color: #95a5a6; font-size: 0.8rem; margin-top: 1rem;">
-        <em>Percentile calculations based on Cox regression model coefficients from Taiwan Biobank study.<br>
-        Comparison cohort: {gender}s aged {age_group} (N≈1,000 per demographic group).</em><br>
-        <strong>Note:</strong> Currently using mock LP distributions for demonstration. 
-        Replace with actual patient data for production use.
+        <strong>⚠️ Medical Disclaimer:</strong> This calculator shows your risk percentile within your age/gender group 
+        for educational purposes only. Results are based on population models and should not replace professional 
+        medical advice. Individual risk factors not included in the model may significantly affect your actual risk. 
+        Always consult healthcare providers for personal health assessments.
     </div>
     """, unsafe_allow_html=True)
 
