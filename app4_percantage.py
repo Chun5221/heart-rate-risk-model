@@ -260,13 +260,40 @@ def main():
         # Personal information
         age = st.slider("Age", 20, 80, 45, help="Your current age")
         gender = st.selectbox("Gender", ["Male", "Female"], help="Biological sex")
-        bmi = st.slider("BMI", 15.0, 40.0, 24.0, step=0.1, help="Body Mass Index")
+        
+        # BMI calculation from weight and height
+        st.markdown("**Body Mass Index (BMI)**")
+        col1, col2 = st.columns(2)
+        with col1:
+            weight = st.number_input("Weight (kg)", min_value=30.0, max_value=300.0, value=70.0, step=0.1)
+        with col2:
+            height = st.number_input("Height (cm)", min_value=100.0, max_value=250.0, value=170.0, step=0.1)
+        
+        # Calculate BMI
+        height_m = height / 100  # Convert cm to meters
+        bmi = weight / (height_m ** 2)
+        st.write(f"**Calculated BMI:** {bmi:.1f}")
+        
+        # BMI interpretation
+        if bmi < 18.5:
+            bmi_category = "Underweight"
+            bmi_color = "🔵"
+        elif bmi < 25:
+            bmi_category = "Normal weight"
+            bmi_color = "🟢"
+        elif bmi < 30:
+            bmi_category = "Overweight"
+            bmi_color = "🟡"
+        else:
+            bmi_category = "Obese"
+            bmi_color = "🔴"
+        st.write(f"{bmi_color} **Category:** {bmi_category}")
         
         # Heart rate
         st.markdown("### 💓 Heart Rate")
         current_hr = st.slider(
             "Resting Heart Rate (bpm)", 
-            40, 120, 72, 
+            40, 230, 72, 
             help="Your resting heart rate in beats per minute"
         )
         
