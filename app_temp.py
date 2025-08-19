@@ -780,13 +780,6 @@ def main():
             st.error("Could not calculate BMI. Please check your height and weight values.")
             bmi = 24.0  # Default fallback
         
-        # Option to manually override BMI if needed
-        with st.expander("🔧 Manual BMI Override (Optional)"):
-            use_manual_bmi = st.checkbox("Use manual BMI instead of calculated", value=False)
-            if use_manual_bmi:
-                bmi = st.slider("Manual BMI", 15.0, 40.0, calculated_bmi if calculated_bmi else 24.0, step=0.1)
-                st.info(f"Using manual BMI: {bmi}")
-        
         # Heart rate
         st.markdown("### 💗 Heart Rate")
         current_hr = st.slider(
@@ -816,9 +809,6 @@ def main():
             default=all_categories,
             help="Choose which disease categories to show in your risk assessment"
         )
-        
-        # Calculate button
-        calculate_button = st.button("🔍 Calculate My Risk Percentiles", type="primary")
     
     # Determine user's demographic group
     age_group = get_age_group(age)
@@ -840,7 +830,7 @@ def main():
     </div>
     """, unsafe_allow_html=True)
     
-    if calculate_button or True:  # Auto-calculate for demo
+    if True:  # Auto-calculate always
         st.markdown("### 🎯 Your Risk Percentiles")
         
         # Calculate percentiles for filtered diseases
