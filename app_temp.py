@@ -16,8 +16,8 @@ import math
 
 # Page configuration
 st.set_page_config(
-    page_title="📊 Heart Rate Percentile Risk Calculator",
-    page_icon="📊",
+    page_title="❤️ Heart Rate Risk Percentile Calculator",
+    page_icon="❤️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -1114,3 +1114,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
