@@ -91,7 +91,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Load and parse the Cox regression model coefficients (same as before)
+# Load and parse the Cox regression model coefficients (all diseases)
 @st.cache_data
 def load_model_coefficients():
     """Load the Cox regression model coefficients from the CSV data"""
@@ -111,6 +111,81 @@ Atrial Fibrillation,Now_smoke,-0.22748
 Atrial Fibrillation,Nerver_drink,REF
 Atrial Fibrillation,Ever_drink,0.114189
 Atrial Fibrillation,Now_drink,0.079308
+Anxiety,HR_cat60-69,REF
+Anxiety,HR_cat<60,-0.0147946
+Anxiety,HR_cat70-79,0.0331788
+Anxiety,HR_cat80-89,0.079773
+Anxiety,HR_cat>=90,0.0326789
+Anxiety,AGE,REF
+Anxiety,MALE,0.0221697
+Anxiety,FERMALE,0.5610132
+Anxiety,BMI,-0.0212976
+Anxiety,Nerver_smoke,REF
+Anxiety,Ever_smoke,0.1371077
+Anxiety,Now_smoke,0.1912624
+Anxiety,Nerver_drink,REF
+Anxiety,Ever_drink,0.2342184
+Anxiety,Now_drink,0.145487
+Chronic Kidney Disease,HR_cat60-69,REF
+Chronic Kidney Disease,HR_cat<60,-0.037829
+Chronic Kidney Disease,HR_cat70-79,0.114072
+Chronic Kidney Disease,HR_cat80-89,0.2957
+Chronic Kidney Disease,HR_cat>=90,0.720731
+Chronic Kidney Disease,AGE,0.067726
+Chronic Kidney Disease,MALE,REF
+Chronic Kidney Disease,FERMALE,-0.336082
+Chronic Kidney Disease,BMI,0.081698
+Chronic Kidney Disease,Nerver_smoke,REF
+Chronic Kidney Disease,Ever_smoke,0.034987
+Chronic Kidney Disease,Now_smoke,0.035351
+Chronic Kidney Disease,Nerver_drink,REF
+Chronic Kidney Disease,Ever_drink,0.283053
+Chronic Kidney Disease,Now_drink,-0.097787
+GERD,HR_cat60-69,REF
+GERD,HR_cat<60,0.0173609
+GERD,HR_cat70-79,0.106481
+GERD,HR_cat80-89,0.1243943
+GERD,HR_cat>=90,0.1830798
+GERD,AGE,0.0110515
+GERD,MALE,REF
+GERD,FERMALE,0.1725073
+GERD,BMI,0.0031696
+GERD,Nerver_smoke,REF
+GERD,Ever_smoke,0.1186117
+GERD,Now_smoke,-0.0538687
+GERD,Nerver_drink,REF
+GERD,Ever_drink,0.0527654
+GERD,Now_drink,0.0680244
+Heart Failure,HR_cat60-69,REF
+Heart Failure,HR_cat<60,0.094597
+Heart Failure,HR_cat70-79,0.046528
+Heart Failure,HR_cat80-89,0.281359
+Heart Failure,HR_cat>=90,0.325456
+Heart Failure,AGE,0.077657
+Heart Failure,MALE,REF
+Heart Failure,FERMALE,-0.053006
+Heart Failure,BMI,0.10726
+Heart Failure,Nerver_smoke,REF
+Heart Failure,Ever_smoke,0.152996
+Heart Failure,Now_smoke,0.254233
+Heart Failure,Nerver_drink,REF
+Heart Failure,Ever_drink,0.128193
+Heart Failure,Now_drink,-0.019435
+Myocardial Infarction,HR_cat60-69,REF
+Myocardial Infarction,HR_cat<60,0.266526
+Myocardial Infarction,HR_cat70-79,0.093003
+Myocardial Infarction,HR_cat80-89,0.144828
+Myocardial Infarction,HR_cat>=90,0.145092
+Myocardial Infarction,AGE,0.079069
+Myocardial Infarction,MALE,REF
+Myocardial Infarction,FERMALE,-1.035229
+Myocardial Infarction,BMI,0.088253
+Myocardial Infarction,Nerver_smoke,REF
+Myocardial Infarction,Ever_smoke,0.443004
+Myocardial Infarction,Now_smoke,0.85316
+Myocardial Infarction,Nerver_drink,REF
+Myocardial Infarction,Ever_drink,0.236342
+Myocardial Infarction,Now_drink,-0.37105
 Type 2 Diabetes,HR_cat60-69,REF
 Type 2 Diabetes,HR_cat<60,-0.115098
 Type 2 Diabetes,HR_cat70-79,0.237972
@@ -126,6 +201,96 @@ Type 2 Diabetes,Now_smoke,0.18522
 Type 2 Diabetes,Nerver_drink,REF
 Type 2 Diabetes,Ever_drink,0.168757
 Type 2 Diabetes,Now_drink,0.122939
+Anemia,HR_cat60-69,REF
+Anemia,HR_cat<60,-0.0392645
+Anemia,HR_cat70-79,0.0977869
+Anemia,HR_cat80-89,0.1981423
+Anemia,HR_cat>=90,0.0895871
+Anemia,AGE,-0.0061833
+Anemia,MALE,REF
+Anemia,FERMALE,1.1290142
+Anemia,BMI,-0.0073061
+Anemia,Nerver_smoke,REF
+Anemia,Ever_smoke,0.2113872
+Anemia,Now_smoke,-0.0535957
+Anemia,Nerver_drink,REF
+Anemia,Ever_drink,0.1674907
+Anemia,Now_drink,-0.1735583
+Angina Pectoris,HR_cat60-69,REF
+Angina Pectoris,HR_cat<60,0.14336
+Angina Pectoris,HR_cat70-79,-0.072307
+Angina Pectoris,HR_cat80-89,0.031692
+Angina Pectoris,HR_cat>=90,-0.096771
+Angina Pectoris,AGE,0.05689
+Angina Pectoris,MALE,REF
+Angina Pectoris,FERMALE,-0.184188
+Angina Pectoris,BMI,0.055886
+Angina Pectoris,Nerver_smoke,REF
+Angina Pectoris,Ever_smoke,0.204652
+Angina Pectoris,Now_smoke,0.206606
+Angina Pectoris,Nerver_drink,REF
+Angina Pectoris,Ever_drink,0.192616
+Angina Pectoris,Now_drink,-0.005281
+Asthma,HR_cat60-69,REF
+Asthma,HR_cat<60,-0.106883
+Asthma,HR_cat70-79,0.022602
+Asthma,HR_cat80-89,0.053949
+Asthma,HR_cat>=90,0.246947
+Asthma,AGE,0.018771
+Asthma,MALE,REF
+Asthma,FERMALE,0.34897
+Asthma,BMI,0.051065
+Asthma,Nerver_smoke,REF
+Asthma,Ever_smoke,0.180858
+Asthma,Now_smoke,0.158275
+Asthma,Nerver_drink,REF
+Asthma,Ever_drink,0.048924
+Asthma,Now_drink,-0.075188
+Atherosclerosis,HR_cat60-69,REF
+Atherosclerosis,HR_cat<60,0.143407
+Atherosclerosis,HR_cat70-79,-0.046939
+Atherosclerosis,HR_cat80-89,-0.010829
+Atherosclerosis,HR_cat>=90,-0.193343
+Atherosclerosis,AGE,0.076931
+Atherosclerosis,MALE,REF
+Atherosclerosis,FERMALE,-0.474543
+Atherosclerosis,BMI,0.073382
+Atherosclerosis,Nerver_smoke,REF
+Atherosclerosis,Ever_smoke,0.218909
+Atherosclerosis,Now_smoke,0.199181
+Atherosclerosis,Nerver_drink,REF
+Atherosclerosis,Ever_drink,0.250373
+Atherosclerosis,Now_drink,0.049339
+Cardiac Arrhythmia,HR_cat60-69,REF
+Cardiac Arrhythmia,HR_cat<60,0.180933
+Cardiac Arrhythmia,HR_cat70-79,0.067217
+Cardiac Arrhythmia,HR_cat80-89,0.225652
+Cardiac Arrhythmia,HR_cat>=90,0.416275
+Cardiac Arrhythmia,AGE,0.033826
+Cardiac Arrhythmia,MALE,REF
+Cardiac Arrhythmia,FERMALE,0.200422
+Cardiac Arrhythmia,BMI,0.003792
+Cardiac Arrhythmia,Nerver_smoke,REF
+Cardiac Arrhythmia,Ever_smoke,0.062005
+Cardiac Arrhythmia,Now_smoke,-0.058892
+Cardiac Arrhythmia,Nerver_drink,REF
+Cardiac Arrhythmia,Ever_drink,0.152499
+Cardiac Arrhythmia,Now_drink,0.055137
+Depression,HR_cat60-69,REF
+Depression,HR_cat<60,0.1195075
+Depression,HR_cat70-79,0.1140151
+Depression,HR_cat80-89,0.337861
+Depression,HR_cat>=90,0.5705119
+Depression,AGE,0.0123584
+Depression,MALE,REF
+Depression,FERMALE,0.5986412
+Depression,BMI,-0.009728
+Depression,Nerver_smoke,REF
+Depression,Ever_smoke,0.3088563
+Depression,Now_smoke,0.5593592
+Depression,Nerver_drink,REF
+Depression,Ever_drink,0.3865247
+Depression,Now_drink,-0.0006955
 Hypertension,HR_cat60-69,REF
 Hypertension,HR_cat<60,-0.057906
 Hypertension,HR_cat70-79,0.19495
@@ -140,7 +305,67 @@ Hypertension,Ever_smoke,0.046438
 Hypertension,Now_smoke,0.099012
 Hypertension,Nerver_drink,REF
 Hypertension,Ever_drink,0.185565
-Hypertension,Now_drink,0.281362"""
+Hypertension,Now_drink,0.281362
+Ischemic Heart Disease,HR_cat60-69,REF
+Ischemic Heart Disease,HR_cat<60,0.176283
+Ischemic Heart Disease,HR_cat70-79,0.024369
+Ischemic Heart Disease,HR_cat80-89,-0.016693
+Ischemic Heart Disease,HR_cat>=90,-0.01592
+Ischemic Heart Disease,AGE,0.076265
+Ischemic Heart Disease,MALE,REF
+Ischemic Heart Disease,FERMALE,-0.201685
+Ischemic Heart Disease,BMI,0.072083
+Ischemic Heart Disease,Nerver_smoke,REF
+Ischemic Heart Disease,Ever_smoke,0.110185
+Ischemic Heart Disease,Now_smoke,0.2139
+Ischemic Heart Disease,Nerver_drink,REF
+Ischemic Heart Disease,Ever_drink,0.222689
+Ischemic Heart Disease,Now_drink,-0.11555
+Ischemic Stroke,HR_cat60-69,REF
+Ischemic Stroke,HR_cat<60,0.096548
+Ischemic Stroke,HR_cat70-79,0.27437
+Ischemic Stroke,HR_cat80-89,0.434256
+Ischemic Stroke,HR_cat>=90,0.503506
+Ischemic Stroke,AGE,0.079883
+Ischemic Stroke,MALE,REF
+Ischemic Stroke,FERMALE,-0.182232
+Ischemic Stroke,BMI,0.052259
+Ischemic Stroke,Nerver_smoke,REF
+Ischemic Stroke,Ever_smoke,0.087919
+Ischemic Stroke,Now_smoke,0.408596
+Ischemic Stroke,Nerver_drink,REF
+Ischemic Stroke,Ever_drink,0.261755
+Ischemic Stroke,Now_drink,0.224026
+Migraine,HR_cat60-69,REF
+Migraine,HR_cat<60,-0.048947
+Migraine,HR_cat70-79,-0.005818
+Migraine,HR_cat80-89,0.158086
+Migraine,HR_cat>=90,0.225437
+Migraine,AGE,-0.013665
+Migraine,MALE,REF
+Migraine,FERMALE,0.948374
+Migraine,BMI,0.015827
+Migraine,Nerver_smoke,REF
+Migraine,Ever_smoke,0.167694
+Migraine,Now_smoke,0.326955
+Migraine,Nerver_drink,REF
+Migraine,Ever_drink,-0.270397
+Migraine,Now_drink,-0.253202
+Parkinson's Disease,HR_cat60-69,REF
+Parkinson's Disease,HR_cat<60,0.2167
+Parkinson's Disease,HR_cat70-79,0.364965
+Parkinson's Disease,HR_cat80-89,0.259543
+Parkinson's Disease,HR_cat>=90,0.564756
+Parkinson's Disease,AGE,0.133954
+Parkinson's Disease,MALE,REF
+Parkinson's Disease,FERMALE,-0.643991
+Parkinson's Disease,BMI,0.030553
+Parkinson's Disease,Nerver_smoke,REF
+Parkinson's Disease,Ever_smoke,-0.462127
+Parkinson's Disease,Now_smoke,-0.187978
+Parkinson's Disease,Nerver_drink,REF
+Parkinson's Disease,Ever_drink,0.002671
+Parkinson's Disease,Now_drink,-0.688835"""
     
     from io import StringIO
     df = pd.read_csv(StringIO(csv_data))
@@ -161,20 +386,42 @@ def load_lp_distributions():
     - LP_Percentiles: percentile values (5, 10, 25, 50, 75, 90, 95)
     """
     
-    # SAMPLE DATA - Replace with your actual data
-    sample_data = []
-    diseases = ['Atrial Fibrillation', 'Type 2 Diabetes', 'Hypertension']
+    # ALL DISEASES - Replace with your actual data
+    diseases = [
+        'Atrial Fibrillation', 'Anxiety', 'Chronic Kidney Disease', 'GERD', 
+        'Heart Failure', 'Myocardial Infarction', 'Type 2 Diabetes', 'Anemia',
+        'Angina Pectoris', 'Asthma', 'Atherosclerosis', 'Cardiac Arrhythmia',
+        'Depression', 'Hypertension', 'Ischemic Heart Disease', 'Ischemic Stroke',
+        'Migraine', "Parkinson's Disease"
+    ]
+    
     genders = ['Male', 'Female']
     age_groups = ['30-40', '40-50', '50-60', '60-70', '70-80']
     
+    sample_data = []
     np.random.seed(42)  # For reproducible sample data
     
     for disease in diseases:
         for gender in genders:
             for age_group in age_groups:
-                # Generate sample LP distribution (replace with real data)
-                base_lp = np.random.normal(0, 1)
-                percentiles = np.random.normal(base_lp, 0.5, 7)
+                # Generate realistic sample LP distribution
+                # Different diseases have different base risks
+                if disease in ['Atrial Fibrillation', 'Heart Failure', 'Myocardial Infarction']:
+                    base_lp = np.random.normal(0.5, 0.8)  # Higher base risk
+                elif disease in ['Anxiety', 'Depression', 'Migraine']:
+                    base_lp = np.random.normal(0.2, 0.6)  # Moderate base risk
+                else:
+                    base_lp = np.random.normal(0.0, 0.7)  # Average base risk
+                
+                # Age and gender effects
+                age_mid = int(age_group.split('-')[0]) + 5
+                age_effect = (age_mid - 50) * 0.02  # Older = higher risk
+                gender_effect = 0.1 if gender == 'Female' and disease in ['Migraine', 'Anxiety'] else -0.1
+                
+                adjusted_base = base_lp + age_effect + gender_effect
+                
+                # Generate percentile thresholds
+                percentiles = np.random.normal(adjusted_base, 0.6, 7)
                 percentiles = np.sort(percentiles)
                 
                 sample_data.append({
@@ -191,6 +438,35 @@ def load_lp_distributions():
                 })
     
     return pd.DataFrame(sample_data)
+
+def categorize_diseases(disease_name):
+    """Categorize diseases for filtering"""
+    cardiovascular_diseases = [
+        'Atrial Fibrillation', 'Heart Failure', 'Myocardial Infarction', 
+        'Cardiac Arrhythmia', 'Ischemic Heart Disease', 'Angina Pectoris', 
+        'Atherosclerosis', 'Hypertension', 'Ischemic Stroke'
+    ]
+    
+    metabolic_diseases = [
+        'Type 2 Diabetes', 'Chronic Kidney Disease'
+    ]
+    
+    mental_health = [
+        'Anxiety', 'Depression'
+    ]
+    
+    other_conditions = [
+        'GERD', 'Anemia', 'Asthma', 'Migraine', "Parkinson's Disease"
+    ]
+    
+    if disease_name in cardiovascular_diseases:
+        return 'Cardiovascular'
+    elif disease_name in metabolic_diseases:
+        return 'Metabolic'
+    elif disease_name in mental_health:
+        return 'Mental Health'
+    else:
+        return 'Other Conditions'
 
 def get_heart_rate_category(hr):
     """Categorize heart rate according to the model categories"""
@@ -414,6 +690,16 @@ def main():
             ["Never Drinker", "Former Drinker", "Current Drinker"]
         )
         
+        # Disease category filter
+        st.markdown("### 🏥 Disease Categories")
+        all_categories = ['Cardiovascular', 'Metabolic', 'Mental Health', 'Other Conditions']
+        selected_categories = st.multiselect(
+            "Select categories to display:",
+            all_categories,
+            default=all_categories,
+            help="Choose which disease categories to show in your risk assessment"
+        )
+        
         # Calculate button
         calculate_button = st.button("🔍 Calculate My Risk Percentiles", type="primary")
     
@@ -432,70 +718,138 @@ def main():
     if calculate_button or True:  # Auto-calculate for demo
         st.markdown("### 🎯 Your Risk Percentiles")
         
-        # Calculate percentiles for all diseases
+        # Calculate percentiles for filtered diseases
         results = []
         
+        # Filter diseases by selected categories
         for disease in diseases:
-            # Calculate user's linear predictor
-            user_lp = calculate_linear_predictor(
-                disease, age, gender, current_hr, bmi, 
-                smoking_status, drinking_status, model_df
-            )
-            
-            if user_lp is not None:
-                # Calculate percentile rank
-                percentile = calculate_percentile_rank(
-                    user_lp, disease, gender, age_group, lp_dist_df
+            category = categorize_diseases(disease)
+            if category in selected_categories:
+                # Calculate user's linear predictor
+                user_lp = calculate_linear_predictor(
+                    disease, age, gender, current_hr, bmi, 
+                    smoking_status, drinking_status, model_df
                 )
                 
-                if percentile is not None:
-                    risk_category, card_class, color = get_risk_category_and_color(percentile)
-                    results.append({
-                        'disease': disease,
-                        'percentile': percentile,
-                        'risk_category': risk_category,
-                        'card_class': card_class,
-                        'color': color,
-                        'lp': user_lp
-                    })
+                if user_lp is not None:
+                    # Calculate percentile rank
+                    percentile = calculate_percentile_rank(
+                        user_lp, disease, gender, age_group, lp_dist_df
+                    )
+                    
+                    if percentile is not None:
+                        risk_category, card_class, color = get_risk_category_and_color(percentile)
+                        results.append({
+                            'disease': disease,
+                            'category': category,
+                            'percentile': percentile,
+                            'risk_category': risk_category,
+                            'card_class': card_class,
+                            'color': color,
+                            'lp': user_lp
+                        })
         
         if results:
             # Sort by percentile (highest risk first)
             results.sort(key=lambda x: x['percentile'], reverse=True)
             
-            # Create summary cards
-            cols = st.columns(len(results))
+            # Create dynamic grid layout based on number of diseases
+            num_diseases = len(results)
+            if num_diseases <= 3:
+                cols_per_row = num_diseases
+            elif num_diseases <= 6:
+                cols_per_row = 3
+            elif num_diseases <= 9:
+                cols_per_row = 3
+            else:
+                cols_per_row = 4
             
-            for i, result in enumerate(results):
-                with cols[i]:
-                    # Create gauge chart
-                    fig = create_percentile_gauge(result['percentile'], result['disease'])
-                    st.plotly_chart(fig, use_container_width=True)
-                    
-                    # Risk interpretation
-                    if result['percentile'] >= 90:
-                        interpretation = f"⚠️ **Top {100-result['percentile']}% highest risk**"
-                        recommendation = "Consider medical consultation"
-                    elif result['percentile'] >= 75:
-                        interpretation = f"📈 **Higher than {result['percentile']}% of your demographic**"
-                        recommendation = "Monitor closely, lifestyle changes"
-                    elif result['percentile'] >= 50:
-                        interpretation = f"📊 **Average risk** (top {100-result['percentile']}%)"
-                        recommendation = "Continue healthy habits"
-                    else:
-                        interpretation = f"✅ **Lower risk** (top {100-result['percentile']}%)"
-                        recommendation = "Maintain current lifestyle"
-                    
-                    st.markdown(f"""
-                    <div class="{result['card_class']}">
-                        <h4>{result['disease']}</h4>
-                        <div class="percentile-number">{result['percentile']}th</div>
-                        <p>Percentile</p>
-                        <hr style="border-color: rgba(255,255,255,0.3);">
-                        <p style="font-size: 0.9rem;">{interpretation}</p>
-                        <p style="font-size: 0.8rem;"><em>{recommendation}</em></p>
-                    </div>
-                    """, unsafe_allow_html=True)
+            # Display results in grid format
+            for i in range(0, num_diseases, cols_per_row):
+                cols = st.columns(cols_per_row)
+                for j in range(cols_per_row):
+                    if i + j < num_diseases:
+                        result = results[i + j]
+                        with cols[j]:
+                            # Create gauge chart
+                            fig = create_percentile_gauge(result['percentile'], result['disease'])
+                            st.plotly_chart(fig, use_container_width=True)
+                            
+                            # Risk interpretation
+                            if result['percentile'] >= 90:
+                                interpretation = f"⚠️ **Top {100-result['percentile']}% highest risk**"
+                                recommendation = "Consider medical consultation"
+                            elif result['percentile'] >= 75:
+                                interpretation = f"📈 **Higher than {result['percentile']}% of your demographic**"
+                                recommendation = "Monitor closely, lifestyle changes"
+                            elif result['percentile'] >= 50:
+                                interpretation = f"📊 **Average risk** (top {100-result['percentile']}%)"
+                                recommendation = "Continue healthy habits"
+                            else:
+                                interpretation = f"✅ **Lower risk** (top {100-result['percentile']}%)"
+                                recommendation = "Maintain current lifestyle"
+                            
+                            st.markdown(f"""
+                            <div class="{result['card_class']}">
+                                <h4>{result['disease']}</h4>
+                                <div class="percentile-number">{result['percentile']}th</div>
+                                <p>Percentile</p>
+                                <p style="font-size: 0.8rem; opacity: 0.9;">{result['category']}</p>
+                                <hr style="border-color: rgba(255,255,255,0.3);">
+                                <p style="font-size: 0.9rem;">{interpretation}</p>
+                                <p style="font-size: 0.8rem;"><em>{recommendation}</em></p>
+                            </div>
+                            """, unsafe_allow_html=True)
+            
+            # Category-wise summary
+            st.markdown("### 📊 Risk Summary by Category")
+            
+            # Group results by category
+            category_summary = {}
+            for result in results:
+                cat = result['category']
+                if cat not in category_summary:
+                    category_summary[cat] = {'high': 0, 'moderate': 0, 'average': 0, 'low': 0, 'diseases': []}
+                
+                category_summary[cat]['diseases'].append(result['disease'])
+                
+                if result['percentile'] >= 90:
+                    category_summary[cat]['high'] += 1
+                elif result['percentile'] >= 75:
+                    category_summary[cat]['moderate'] += 1
+                elif result['percentile'] >= 50:
+                    category_summary[cat]['average'] += 1
+                else:
+                    category_summary[cat]['low'] += 1
+            
+            # Display category summary
+            if category_summary:
+                summary_cols = st.columns(len(category_summary))
+                for i, (category, summary) in enumerate(category_summary.items()):
+                    with summary_cols[i]:
+                        total = len(summary['diseases'])
+                        high_pct = (summary['high'] / total) * 100
+                        
+                        # Choose color based on risk level
+                        if high_pct >= 50:
+                            bg_color = "linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)"
+                        elif summary['moderate'] > 0:
+                            bg_color = "linear-gradient(135deg, #ffa726 0%, #ff9800 100%)"
+                        else:
+                            bg_color = "linear-gradient(135deg, #66bb6a 0%, #4caf50 100%)"
+                        
+                        st.markdown(f"""
+                        <div style="background: {bg_color}; padding: 1.5rem; border-radius: 15px; 
+                                    color: white; text-align: center; margin: 0.5rem 0;">
+                            <h4>{category}</h4>
+                            <p><strong>{total}</strong> diseases assessed</p>
+                            <hr style="border-color: rgba(255,255,255,0.3);">
+                            <p>🔴 High Risk: {summary['high']}</p>
+                            <p>🟡 Moderate: {summary['moderate']}</p>
+                            <p>🔵 Average: {summary['average']}</p>
+                            <p>🟢 Lower: {summary['low']}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
             
             # Detailed risk comparison table
             st.markdown("### 📋 Detailed Risk Comparison")
@@ -503,6 +857,7 @@ def main():
             # Create comparison DataFrame
             comparison_df = pd.DataFrame({
                 'Disease': [r['disease'] for r in results],
+                'Category': [r['category'] for r in results],
                 'Your Percentile': [f"{r['percentile']}th" for r in results],
                 'Risk Level': [r['risk_category'] for r in results],
                 'Interpretation': [
@@ -515,7 +870,7 @@ def main():
             })
             
             # Style the dataframe
-            def style_percentile(val):
+            def style_risk_level(val):
                 if 'High Risk' in val:
                     return 'background-color: #ffebee; color: #c62828'
                 elif 'Moderate' in val:
@@ -525,47 +880,123 @@ def main():
                 else:
                     return 'background-color: #e8f5e8; color: #2e7d32'
             
-            styled_df = comparison_df.style.applymap(style_percentile, subset=['Risk Level'])
+            def style_category(val):
+                colors = {
+                    'Cardiovascular': 'background-color: #ffebee; color: #c62828',
+                    'Metabolic': 'background-color: #f3e5f5; color: #7b1fa2',
+                    'Mental Health': 'background-color: #e8f5e8; color: #388e3c',
+                    'Other Conditions': 'background-color: #e3f2fd; color: #1976d2'
+                }
+                return colors.get(val, '')
+            
+            styled_df = comparison_df.style.applymap(style_risk_level, subset=['Risk Level'])\
+                                           .applymap(style_category, subset=['Category'])
             st.dataframe(styled_df, use_container_width=True, hide_index=True)
             
-            # Risk distribution visualization
-            st.markdown("### 📊 Risk Distribution in Your Demographic")
+            # Risk distribution visualization for top diseases
+            st.markdown("### 📊 Risk Distribution Analysis")
             
-            # Show where user falls in the distribution
-            fig_dist = go.Figure()
+            # Show distribution for top 6 highest risk diseases
+            top_diseases = results[:6] if len(results) >= 6 else results
             
-            # Create sample distribution curve for visualization
-            x = np.linspace(0, 100, 100)
-            y = np.exp(-((x-50)**2)/(2*20**2))  # Normal-like curve
-            
-            fig_dist.add_trace(go.Scatter(
-                x=x, y=y,
-                fill='tozeroy',
-                fillcolor='rgba(52, 152, 219, 0.3)',
-                line=dict(color='rgba(52, 152, 219, 0.8)'),
-                name='Population Distribution',
-                hovertemplate='Percentile: %{x}<br>Density: %{y}<extra></extra>'
-            ))
-            
-            # Add user's position for each disease
-            for result in results[:3]:  # Show top 3 diseases
-                fig_dist.add_vline(
-                    x=result['percentile'],
-                    line_dash="dash",
-                    line_color=result['color'],
-                    annotation_text=f"{result['disease']}<br>{result['percentile']}th percentile",
-                    annotation_position="top"
+            if len(top_diseases) > 0:
+                # Create subplots for distribution curves
+                cols_subplot = 2 if len(top_diseases) > 1 else 1
+                rows_subplot = math.ceil(len(top_diseases) / cols_subplot)
+                
+                fig_dist = make_subplots(
+                    rows=rows_subplot, 
+                    cols=cols_subplot,
+                    subplot_titles=[f"{d['disease']}" for d in top_diseases],
+                    vertical_spacing=0.15,
+                    horizontal_spacing=0.12
                 )
-            
-            fig_dist.update_layout(
-                title=f"Your Position Among {gender}s Aged {age_group}",
-                xaxis_title="Risk Percentile",
-                yaxis_title="Population Density",
-                height=400,
-                showlegend=True
-            )
-            
-            st.plotly_chart(fig_dist, use_container_width=True)
+                
+                # Create sample distribution curve for each disease
+                x = np.linspace(0, 100, 100)
+                
+                for i, disease_result in enumerate(top_diseases):
+                    row = (i // cols_subplot) + 1
+                    col = (i % cols_subplot) + 1
+                    
+                    # Normal-like distribution curve
+                    y = np.exp(-((x-50)**2)/(2*25**2))
+                    
+                    # Population distribution
+                    fig_dist.add_trace(
+                        go.Scatter(
+                            x=x, y=y,
+                            fill='tozeroy',
+                            fillcolor='rgba(52, 152, 219, 0.3)',
+                            line=dict(color='rgba(52, 152, 219, 0.8)', width=2),
+                            name=f'Population Distribution',
+                            showlegend=(i == 0),
+                            hovertemplate='Percentile: %{x}<br>Density: %{y}<extra></extra>'
+                        ),
+                        row=row, col=col
+                    )
+                    
+                    # User's position
+                    user_percentile = disease_result['percentile']
+                    user_y = np.exp(-((user_percentile-50)**2)/(2*25**2))
+                    
+                    fig_dist.add_trace(
+                        go.Scatter(
+                            x=[user_percentile], 
+                            y=[user_y],
+                            mode='markers',
+                            name='Your Position',
+                            marker=dict(
+                                size=15, 
+                                color=disease_result['color'], 
+                                symbol='star',
+                                line=dict(width=2, color='white')
+                            ),
+                            showlegend=(i == 0),
+                            hovertemplate=f'<b>Your Position</b><br>Percentile: {user_percentile}<br>Risk Level: {disease_result["risk_category"]}<extra></extra>'
+                        ),
+                        row=row, col=col
+                    )
+                    
+                    # Add percentile markers
+                    percentile_marks = [25, 50, 75, 90]
+                    for pct in percentile_marks:
+                        if pct != user_percentile:  # Don't duplicate user's position
+                            fig_dist.add_vline(
+                                x=pct,
+                                line_dash="dot",
+                                line_color="gray",
+                                opacity=0.5,
+                                row=row, col=col
+                            )
+                
+                # Update layout
+                fig_dist.update_layout(
+                    height=300 * rows_subplot,
+                    title_text=f"Your Risk Position Among {gender}s Aged {age_group}",
+                    showlegend=True,
+                    font=dict(size=10)
+                )
+                
+                # Update axes
+                for i in range(len(top_diseases)):
+                    row = (i // cols_subplot) + 1
+                    col = (i % cols_subplot) + 1
+                    fig_dist.update_xaxes(title_text="Risk Percentile", row=row, col=col)
+                    fig_dist.update_yaxes(title_text="Population Density", row=row, col=col)
+                
+                st.plotly_chart(fig_dist, use_container_width=True)
+                
+                # Legend explanation
+                st.markdown(f"""
+                <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
+                    <strong>📖 Chart Legend:</strong><br>
+                    • <span style="color: #3498db;">Blue area</span>: Population distribution of risk in your demographic<br>
+                    • <span style="color: red;">⭐ Star</span>: Your risk position<br>
+                    • <span style="color: gray;">Dotted lines</span>: Common percentile markers (25th, 50th, 75th, 90th)<br>
+                    • Charts show where you rank compared to other {gender.lower()}s aged {age_group}
+                </div>
+                """, unsafe_allow_html=True)
             
         else:
             st.error("Could not calculate risk percentiles. Please check your inputs.")
@@ -611,7 +1042,7 @@ def main():
         
         # Heart rate specific advice
         if current_hr >= 85:
-            st.markdown("""
+            st.markdown(f"""
             <div style="background: linear-gradient(135deg, #a8e6cf 0%, #88d8c0 100%); 
                         padding: 1.5rem; border-radius: 15px; color: #2c3e50; margin: 1rem 0;">
                 <h4>💓 Heart Rate Optimization</h4>
@@ -623,7 +1054,7 @@ def main():
                     <li>💤 Prioritize quality sleep</li>
                 </ul>
             </div>
-            """.replace('{current_hr}', str(current_hr)), unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
     
     # Methodology explanation
     with st.expander("📚 How This Calculator Works"):
