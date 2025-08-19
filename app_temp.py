@@ -83,10 +83,26 @@ st.markdown("""
         margin: 1rem 0;
     }
     
+    .bmi-info {
+        background: #e8f5e8;
+        padding: 1rem;
+        border-radius: 10px;
+        border-left: 4px solid #27ae60;
+        margin: 0.5rem 0;
+        font-size: 0.9rem;
+    }
+    
     .percentile-number {
         font-size: 3rem;
         font-weight: bold;
         text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+    
+    .unit-toggle {
+        background: #f8f9fa;
+        padding: 0.5rem;
+        border-radius: 8px;
+        margin: 0.5rem 0;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -439,6 +455,42 @@ def load_lp_distributions():
     
     return pd.DataFrame(sample_data)
 
+def calculate_bmi(height, weight, height_unit, weight_unit):
+    """Calculate BMI from height and weight with unit conversion"""
+    try:
+        # Convert height to meters
+        if height_unit == "cm":
+            height_m = height / 100
+        elif height_unit == "feet/inches":
+            # Height is passed as total inches
+            height_m = height * 0.0254
+        else:  # meters
+            height_m = height
+        
+        # Convert weight to kg
+        if weight_unit == "lbs":
+            weight_kg = weight * 0.453592
+        else:  # kg
+            weight_kg = weight
+        
+        # Calculate BMI
+        bmi = weight_kg / (height_m ** 2)
+        return round(bmi, 1)
+    
+    except (ZeroDivisionError, ValueError):
+        return None
+
+def get_bmi_category(bmi):
+    """Categorize BMI according to WHO standards"""
+    if bmi < 18.5:
+        return "Underweight", "#3498db"
+    elif bmi < 25:
+        return "Normal weight", "#27ae60"
+    elif bmi < 30:
+        return "Overweight", "#f39c12"
+    else:
+        return "Obese", "#e74c3c"
+
 def categorize_diseases(disease_name):
     """Categorize diseases for filtering"""
     cardiovascular_diseases = [
@@ -668,10 +720,75 @@ def main():
         # Personal information
         age = st.slider("Age", 20, 90, 45, help="Your current age")
         gender = st.selectbox("Gender", ["Male", "Female"], help="Biological sex")
-        bmi = st.slider("BMI", 15.0, 40.0, 24.0, step=0.1, help="Body Mass Index")
+        
+        # Height and Weight Section with BMI Calculator
+        st.markdown("### 📏 Height & Weight")
+        
+        # Unit selection
+        col1, col2 = st.columns(2)
+        with col1:
+            height_unit = st.selectbox(
+                "Height unit", 
+                ["cm", "feet/inches", "meters"],
+                help="Select your preferred height measurement"
+            )
+        with col2:
+            weight_unit = st.selectbox(
+                "Weight unit", 
+                ["kg", "lbs"],
+                help="Select your preferred weight measurement"
+            )
+        
+        # Height input based on unit
+        if height_unit == "cm":
+            height = st.slider("Height (cm)", 100, 220, 170, help="Your height in centimeters")
+        elif height_unit == "feet/inches":
+            feet = st.selectbox("Feet", list(range(3, 8)), index=2, help="Feet component of height")
+            inches = st.selectbox("Inches", list(range(0, 12)), index=6, help="Inches component of height") 
+            height = feet * 12 + inches  # Convert to total inches for calculation
+            st.write(f"Height: {feet}'{inches}\"")
+        else:  # meters
+            height = st.slider("Height (m)", 1.0, 2.2, 1.7, step=0.01, help="Your height in meters")
+        
+        # Weight input based on unit
+        if weight_unit == "kg":
+            weight = st.slider("Weight (kg)", 30, 200, 70, help="Your weight in kilograms")
+        else:  # lbs
+            weight = st.slider("Weight (lbs)", 66, 440, 154, help="Your weight in pounds")
+        
+        # Calculate BMI automatically
+        calculated_bmi = calculate_bmi(height, weight, height_unit, weight_unit)
+        
+        if calculated_bmi:
+            bmi_category, bmi_color = get_bmi_category(calculated_bmi)
+            st.markdown(f"""
+            <div class="bmi-info">
+                <h4>📊 Calculated BMI</h4>
+                <p style="font-size: 1.2rem; font-weight: bold; color: {bmi_color};">
+                    BMI: {calculated_bmi}
+                </p>
+                <p style="color: {bmi_color}; font-weight: bold;">
+                    Category: {bmi_category}
+                </p>
+                <small>BMI = weight(kg) ÷ height(m)²</small>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Use calculated BMI
+            bmi = calculated_bmi
+        else:
+            st.error("Could not calculate BMI. Please check your height and weight values.")
+            bmi = 24.0  # Default fallback
+        
+        # Option to manually override BMI if needed
+        with st.expander("🔧 Manual BMI Override (Optional)"):
+            use_manual_bmi = st.checkbox("Use manual BMI instead of calculated", value=False)
+            if use_manual_bmi:
+                bmi = st.slider("Manual BMI", 15.0, 40.0, calculated_bmi if calculated_bmi else 24.0, step=0.1)
+                st.info(f"Using manual BMI: {bmi}")
         
         # Heart rate
-        st.markdown("### 💓 Heart Rate")
+        st.markdown("### 💗 Heart Rate")
         current_hr = st.slider(
             "Resting Heart Rate (bpm)", 
             40, 120, 72, 
@@ -706,12 +823,20 @@ def main():
     # Determine user's demographic group
     age_group = get_age_group(age)
     
-    # Display demographic info
+    # Display demographic info with BMI
     st.markdown(f"""
     <div class="demographic-info">
-        <h4>👥 Your Demographic Group</h4>
-        <p><strong>Comparing you to:</strong> {gender}s aged {age_group} years</p>
-        <p><strong>Your Profile:</strong> {age} years old, {gender}, BMI {bmi}, HR {current_hr} bpm</p>
+        <h4>👥 Your Profile & Demographic Group</h4>
+        <div style="display: flex; justify-content: space-between; flex-wrap: wrap;">
+            <div>
+                <p><strong>Comparing you to:</strong> {gender}s aged {age_group} years</p>
+                <p><strong>Your Details:</strong> {age} years old, {gender}</p>
+            </div>
+            <div>
+                <p><strong>Physical:</strong> BMI {bmi}, HR {current_hr} bpm</p>
+                <p><strong>Lifestyle:</strong> {smoking_status.replace('Never Smoker', 'Non-smoker')}, {drinking_status.replace('Never Drinker', 'Non-drinker')}</p>
+            </div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
     
@@ -1045,7 +1170,7 @@ def main():
             st.markdown(f"""
             <div style="background: linear-gradient(135deg, #a8e6cf 0%, #88d8c0 100%); 
                         padding: 1.5rem; border-radius: 15px; color: #2c3e50; margin: 1rem 0;">
-                <h4>💓 Heart Rate Optimization</h4>
+                <h4>💗 Heart Rate Optimization</h4>
                 <p>Your resting HR ({current_hr} bpm) could be improved:</p>
                 <ul>
                     <li>🏃‍♂️ Cardio exercise 150+ min/week</li>
@@ -1055,6 +1180,46 @@ def main():
                 </ul>
             </div>
             """, unsafe_allow_html=True)
+        
+        # BMI-specific advice
+        bmi_category, _ = get_bmi_category(bmi)
+        if bmi_category in ["Overweight", "Obese"]:
+            st.markdown(f"""
+            <div style="background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%); 
+                        padding: 1.5rem; border-radius: 15px; color: white; margin: 1rem 0;">
+                <h4>⚖️ Weight Management Recommendations</h4>
+                <p>Your BMI ({bmi}) is in the <strong>{bmi_category.lower()}</strong> range:</p>
+                <ul>
+                    <li>🎯 Target gradual weight loss (1-2 lbs/week)</li>
+                    <li>🍽️ Focus on portion control and balanced nutrition</li>
+                    <li>💧 Increase water intake</li>
+                    <li>🚶‍♀️ Add more daily physical activity</li>
+                    <li>📱 Consider using a food diary or app</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    # BMI Information Section
+    with st.expander("📊 Understanding BMI Categories"):
+        st.markdown("""
+        ### BMI (Body Mass Index) Categories
+        
+        **BMI Categories (WHO Standards):**
+        - **Underweight:** BMI < 18.5
+        - **Normal weight:** BMI 18.5-24.9
+        - **Overweight:** BMI 25.0-29.9
+        - **Obese:** BMI ≥ 30.0
+        
+        **BMI Calculation:**
+        BMI = Weight (kg) ÷ Height (m)²
+        
+        **Important Notes:**
+        - BMI is a screening tool, not a diagnostic measure
+        - It doesn't account for muscle mass, bone density, or body composition
+        - Athletes with high muscle mass may have high BMI but low body fat
+        - Age, gender, and ethnicity can affect BMI interpretation
+        - Consult healthcare providers for personalized assessment
+        """)
     
     # Methodology explanation
     with st.expander("📚 How This Calculator Works"):
@@ -1075,6 +1240,14 @@ def main():
         1. Calculate your **Linear Predictor (LP)** using Cox model coefficients
         2. Compare your LP to the distribution of LPs in your demographic group
         3. Determine your percentile rank within that group
+        
+        **Factors Included:**
+        - Age (continuous variable)
+        - Gender (Male/Female)
+        - **BMI (calculated from height/weight)**
+        - Heart rate category (<60, 60-69, 70-79, 80-89, ≥90 bpm)
+        - Smoking status (Never/Former/Current)
+        - Drinking status (Never/Former/Current)
         
         **Data Source:**
         - Cox regression coefficients from Taiwan Biobank study
@@ -1105,15 +1278,13 @@ def main():
     </div>
     """, unsafe_allow_html=True)
     
-    st.markdown("""
+    st.markdown(f"""
     <div style="text-align: center; color: #95a5a6; font-size: 0.8rem; margin-top: 1rem;">
         <em>Risk percentiles calculated using Cox regression model and demographic-specific LP distributions.<br>
+        BMI automatically calculated from height ({height} {height_unit}) and weight ({weight} {weight_unit}).<br>
         Percentile rankings show your position relative to people of your same age group and gender.</em>
     </div>
     """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
-
-
-
