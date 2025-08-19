@@ -658,7 +658,7 @@ def main():
     diseases = model_df['Disease_Name'].unique().tolist()
     
     # Header
-    st.markdown('<h1 class="main-header">📊 Heart Rate Percentile Risk Calculator</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-header">❤️ Heart Rate Risk Percentile Calculator</h1>', unsafe_allow_html=True)
     st.markdown('<p style="text-align: center; font-size: 1.2rem; color: #7f8c8d;">Find out how your risk compares to people in your demographic group</p>', unsafe_allow_html=True)
     
     # Sidebar for inputs
@@ -1114,5 +1114,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
