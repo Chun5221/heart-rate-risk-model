@@ -82,7 +82,31 @@ st.markdown("""
         border-left: 4px solid #3498db;
         margin: 1rem 0;
     }
+
+    .demographic-info {
+    text-align: center;
+    max-width: 1100px;
+    margin: 1rem auto;        /* 置中整塊 */
+    padding: 1.25rem 1.25rem;
+    }
     
+    .demographic-info h4 {       /* 放大標題 */
+    font-size: 1.6rem;
+    margin: 0.25rem 0 0.75rem 0;
+    font-weight: 800;
+    }
+    
+    .demographic-info p {        /* 放大內文 */
+    font-size: 1.05rem;
+    margin: 0.25rem 0;
+    }
+    
+    /* 覆蓋內層 inline style 的 space-between，並調整欄距 */
+    .demographic-info > div {
+    justify-content: center !important;
+    gap: 0.75rem 1.5rem;       /* 上下 / 左右 間距 */
+    }
+
     .bmi-info {
         background: #e8f5e8;
         padding: 1rem;
@@ -1278,3 +1302,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
