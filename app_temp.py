@@ -75,36 +75,43 @@ st.markdown("""
         box-shadow: 0 12px 40px rgba(76,175,80,0.3);
     }
     
+    .mortality-card {
+        background: linear-gradient(135deg, #2c2c54 0%, #40407a 100%);
+        padding: 2rem;
+        border-radius: 20px;
+        color: white;
+        text-align: center;
+        margin: 1rem 0;
+        box-shadow: 0 12px 40px rgba(44,44,84,0.3);
+        border: 2px solid #6c5ce7;
+    }
+    
     .demographic-info {
         background: #f8f9fa;
         padding: 1rem;
         border-radius: 10px;
         border-left: 4px solid #3498db;
         margin: 1rem 0;
-    }
-
-    .demographic-info {
-    text-align: center;
-    max-width: 1100px;
-    margin: 1rem auto;        /* 置中整塊 */
-    padding: 1.25rem 1.25rem;
+        text-align: center;
+        max-width: 1100px;
+        margin: 1rem auto;
+        padding: 1.25rem 1.25rem;
     }
     
-    .demographic-info h4 {       /* 放大標題 */
-    font-size: 1.6rem;
-    margin: 0.25rem 0 0.75rem 0;
-    font-weight: 800;
+    .demographic-info h4 {
+        font-size: 1.6rem;
+        margin: 0.25rem 0 0.75rem 0;
+        font-weight: 800;
     }
     
-    .demographic-info p {        /* 放大內文 */
-    font-size: 1.05rem;
-    margin: 0.25rem 0;
+    .demographic-info p {
+        font-size: 1.05rem;
+        margin: 0.25rem 0;
     }
     
-    /* 覆蓋內層 inline style 的 space-between，並調整欄距 */
     .demographic-info > div {
-    justify-content: center !important;
-    gap: 0.75rem 1.5rem;       /* 上下 / 左右 間距 */
+        justify-content: center !important;
+        gap: 0.75rem 1.5rem;
     }
 
     .bmi-info {
@@ -131,10 +138,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Load and parse the Cox regression model coefficients (all diseases)
+# Load and parse the Cox regression model coefficients (all diseases including Death)
 @st.cache_data
 def load_model_coefficients():
-    """Load the Cox regression model coefficients from the CSV data"""
+    """Load the Cox regression model coefficients from the updated CSV data"""
     csv_data = """Daisease namw,Variable,Coef
 Atrial Fibrillation,HR_cat60-69,REF
 Atrial Fibrillation,HR_cat<60,0.245753
@@ -156,8 +163,8 @@ Anxiety,HR_cat<60,-0.0147946
 Anxiety,HR_cat70-79,0.0331788
 Anxiety,HR_cat80-89,0.079773
 Anxiety,HR_cat>=90,0.0326789
-Anxiety,AGE,REF
-Anxiety,MALE,0.0221697
+Anxiety,AGE,0.0221697
+Anxiety,MALE,REF
 Anxiety,FERMALE,0.5610132
 Anxiety,BMI,-0.0212976
 Anxiety,Nerver_smoke,REF
@@ -405,7 +412,22 @@ Parkinson's Disease,Ever_smoke,-0.462127
 Parkinson's Disease,Now_smoke,-0.187978
 Parkinson's Disease,Nerver_drink,REF
 Parkinson's Disease,Ever_drink,0.002671
-Parkinson's Disease,Now_drink,-0.688835"""
+Parkinson's Disease,Now_drink,-0.688835
+Death,HR_cat60-69,REF
+Death,HR_cat<60,0.034669
+Death,HR_cat70-79,0.245161
+Death,HR_cat80-89,0.55444
+Death,HR_cat>=90,0.769643
+Death,AGE,0.079282
+Death,MALE,REF
+Death,FERMALE,-0.674196
+Death,BMI,0.036303
+Death,Nerver_smoke,REF
+Death,Ever_smoke,-0.01009
+Death,Now_smoke,0.590807
+Death,Nerver_drink,REF
+Death,Ever_drink,0.491235
+Death,Now_drink,0.246215"""
     
     from io import StringIO
     df = pd.read_csv(StringIO(csv_data))
@@ -416,23 +438,16 @@ Parkinson's Disease,Now_drink,-0.688835"""
 @st.cache_data
 def load_lp_distributions():
     """
-    Placeholder for LP distribution data
-    You'll replace this with your actual LP distribution file
-    
-    Expected structure:
-    - Disease_Name: disease name
-    - Gender: Male/Female
-    - Age_Group: age ranges (e.g., '40-50', '50-60')
-    - LP_Percentiles: percentile values (5, 10, 25, 50, 75, 90, 95)
+    Placeholder for LP distribution data including Death model
     """
     
-    # ALL DISEASES - Replace with your actual data
+    # ALL DISEASES INCLUDING DEATH
     diseases = [
         'Atrial Fibrillation', 'Anxiety', 'Chronic Kidney Disease', 'GERD', 
         'Heart Failure', 'Myocardial Infarction', 'Type 2 Diabetes', 'Anemia',
         'Angina Pectoris', 'Asthma', 'Atherosclerosis', 'Cardiac Arrhythmia',
         'Depression', 'Hypertension', 'Ischemic Heart Disease', 'Ischemic Stroke',
-        'Migraine', "Parkinson's Disease"
+        'Migraine', "Parkinson's Disease", 'Death'
     ]
     
     genders = ['Male', 'Female']
@@ -445,8 +460,10 @@ def load_lp_distributions():
         for gender in genders:
             for age_group in age_groups:
                 # Generate realistic sample LP distribution
-                # Different diseases have different base risks
-                if disease in ['Atrial Fibrillation', 'Heart Failure', 'Myocardial Infarction']:
+                if disease == 'Death':
+                    # Death/Mortality has unique characteristics
+                    base_lp = np.random.normal(0.8, 1.0)  # Higher base risk, wider distribution
+                elif disease in ['Atrial Fibrillation', 'Heart Failure', 'Myocardial Infarction']:
                     base_lp = np.random.normal(0.5, 0.8)  # Higher base risk
                 elif disease in ['Anxiety', 'Depression', 'Migraine']:
                     base_lp = np.random.normal(0.2, 0.6)  # Moderate base risk
@@ -456,7 +473,14 @@ def load_lp_distributions():
                 # Age and gender effects
                 age_mid = int(age_group.split('-')[0]) + 5
                 age_effect = (age_mid - 50) * 0.02  # Older = higher risk
-                gender_effect = 0.1 if gender == 'Female' and disease in ['Migraine', 'Anxiety'] else -0.1
+                
+                # Special gender effects for Death and specific diseases
+                if disease == 'Death':
+                    gender_effect = -0.3 if gender == 'Female' else 0  # Females generally lower mortality risk
+                elif gender == 'Female' and disease in ['Migraine', 'Anxiety', 'Anemia']:
+                    gender_effect = 0.2
+                else:
+                    gender_effect = -0.1 if gender == 'Female' else 0
                 
                 adjusted_base = base_lp + age_effect + gender_effect
                 
@@ -516,7 +540,10 @@ def get_bmi_category(bmi):
         return "Obese", "#e74c3c"
 
 def categorize_diseases(disease_name):
-    """Categorize diseases for filtering"""
+    """Categorize diseases for filtering - Death gets its own category"""
+    if disease_name == 'Death':
+        return 'Mortality Risk'
+    
     cardiovascular_diseases = [
         'Atrial Fibrillation', 'Heart Failure', 'Myocardial Infarction', 
         'Cardiac Arrhythmia', 'Ischemic Heart Disease', 'Angina Pectoris', 
@@ -675,45 +702,79 @@ def calculate_percentile_rank(user_lp, disease_name, gender, age_group, lp_dist_
         st.error(f"Error calculating percentile: {str(e)}")
         return None
 
-def get_risk_category_and_color(percentile):
-    """Get risk category and color based on percentile"""
-    if percentile >= 90:
-        return "High Risk", "high-risk-card", "#e74c3c"
-    elif percentile >= 75:
-        return "Moderate-High Risk", "moderate-risk-card", "#f39c12"
-    elif percentile >= 50:
-        return "Average Risk", "percentile-card", "#3498db"
+def get_risk_category_and_color(percentile, disease_name=''):
+    """Get risk category and color based on percentile - special handling for Death"""
+    if disease_name == 'Death':
+        # Special styling for mortality risk
+        if percentile >= 90:
+            return "Critical Mortality Risk", "mortality-card", "#2c2c54"
+        elif percentile >= 75:
+            return "High Mortality Risk", "mortality-card", "#40407a"
+        elif percentile >= 50:
+            return "Moderate Mortality Risk", "mortality-card", "#6c5ce7"
+        else:
+            return "Lower Mortality Risk", "mortality-card", "#a29bfe"
     else:
-        return "Lower Risk", "low-risk-card", "#27ae60"
+        # Regular disease risk categories
+        if percentile >= 90:
+            return "High Risk", "high-risk-card", "#e74c3c"
+        elif percentile >= 75:
+            return "Moderate-High Risk", "moderate-risk-card", "#f39c12"
+        elif percentile >= 50:
+            return "Average Risk", "percentile-card", "#3498db"
+        else:
+            return "Lower Risk", "low-risk-card", "#27ae60"
 
 def create_percentile_gauge(percentile, disease_name):
-    """Create a gauge chart showing percentile position"""
+    """Create a gauge chart showing percentile position - special styling for Death"""
     
-    # Determine color based on risk level
-    if percentile >= 90:
-        color = "#e74c3c"  # Red
-    elif percentile >= 75:
-        color = "#f39c12"  # Orange
-    elif percentile >= 50:
-        color = "#3498db"  # Blue
+    # Special color scheme for Death/Mortality
+    if disease_name == 'Death':
+        if percentile >= 90:
+            color = "#2c2c54"  # Dark purple
+        elif percentile >= 75:
+            color = "#40407a"  # Medium purple
+        elif percentile >= 50:
+            color = "#6c5ce7"  # Light purple
+        else:
+            color = "#a29bfe"  # Very light purple
+        
+        title_text = f"Mortality Risk<br>Percentile"
+        steps = [
+            {'range': [0, 50], 'color': "#ddd6fe"},
+            {'range': [50, 75], 'color': "#c4b5fd"},
+            {'range': [75, 90], 'color': "#a78bfa"},
+            {'range': [90, 100], 'color': "#8b5cf6"}
+        ]
     else:
-        color = "#27ae60"  # Green
+        # Regular disease colors
+        if percentile >= 90:
+            color = "#e74c3c"  # Red
+        elif percentile >= 75:
+            color = "#f39c12"  # Orange
+        elif percentile >= 50:
+            color = "#3498db"  # Blue
+        else:
+            color = "#27ae60"  # Green
+        
+        title_text = f"{disease_name}<br>Risk Percentile"
+        steps = [
+            {'range': [0, 50], 'color': "#d5f4e6"},
+            {'range': [50, 75], 'color': "#ffeaa7"},
+            {'range': [75, 90], 'color': "#fdcb6e"},
+            {'range': [90, 100], 'color': "#e17055"}
+        ]
     
     fig = go.Figure(go.Indicator(
         mode = "gauge+number+delta",
         value = percentile,
         domain = {'x': [0, 1], 'y': [0, 1]},
-        title = {'text': f"{disease_name}<br>Risk Percentile"},
+        title = {'text': title_text},
         delta = {'reference': 50},
         gauge = {
             'axis': {'range': [None, 100]},
             'bar': {'color': color},
-            'steps': [
-                {'range': [0, 50], 'color': "#d5f4e6"},
-                {'range': [50, 75], 'color': "#ffeaa7"},
-                {'range': [75, 90], 'color': "#fdcb6e"},
-                {'range': [90, 100], 'color': "#e17055"}
-            ],
+            'steps': steps,
             'threshold': {
                 'line': {'color': "red", 'width': 4},
                 'thickness': 0.75,
@@ -824,14 +885,14 @@ def main():
             ["Never Drinker", "Former Drinker", "Current Drinker"]
         )
         
-        # Disease category filter
-        st.markdown("### 🏥 Disease Categories")
-        all_categories = ['Cardiovascular', 'Metabolic', 'Mental Health', 'Other Conditions']
+        # Disease category filter - now including Mortality Risk
+        st.markdown("### 🏥 Risk Categories")
+        all_categories = ['Cardiovascular', 'Metabolic', 'Mental Health', 'Other Conditions', 'Mortality Risk']
         selected_categories = st.multiselect(
             "Select categories to display:",
             all_categories,
             default=all_categories,
-            help="Choose which disease categories to show in your risk assessment"
+            help="Choose which risk categories to show in your assessment"
         )
     
     # Determine user's demographic group
@@ -877,7 +938,7 @@ def main():
                     )
                     
                     if percentile is not None:
-                        risk_category, card_class, color = get_risk_category_and_color(percentile)
+                        risk_category, card_class, color = get_risk_category_and_color(percentile, disease)
                         results.append({
                             'disease': disease,
                             'category': category,
@@ -889,63 +950,111 @@ def main():
                         })
         
         if results:
-            # Sort by percentile (highest risk first)
-            results.sort(key=lambda x: x['percentile'], reverse=True)
+            # Separate Death/Mortality from other diseases for display
+            mortality_result = [r for r in results if r['disease'] == 'Death']
+            disease_results = [r for r in results if r['disease'] != 'Death']
             
-            # Create dynamic grid layout based on number of diseases
-            num_diseases = len(results)
-            if num_diseases <= 3:
-                cols_per_row = num_diseases
-            elif num_diseases <= 6:
-                cols_per_row = 3
-            elif num_diseases <= 9:
-                cols_per_row = 3
-            else:
-                cols_per_row = 4
+            # Display Mortality Risk prominently if selected
+            if mortality_result:
+                st.markdown("### ⚰️ Mortality Risk Assessment")
+                mort_result = mortality_result[0]
+                
+                col1, col2 = st.columns([1, 2])
+                with col1:
+                    # Create gauge chart for mortality
+                    fig_mort = create_percentile_gauge(mort_result['percentile'], 'Death')
+                    st.plotly_chart(fig_mort, use_container_width=True)
+                
+                with col2:
+                    # Mortality risk interpretation
+                    if mort_result['percentile'] >= 90:
+                        interpretation = f"⚠️ **Critical: Top {100-mort_result['percentile']}% highest mortality risk**"
+                        recommendation = "Immediate medical consultation strongly advised"
+                        urgency_color = "#c0392b"
+                    elif mort_result['percentile'] >= 75:
+                        interpretation = f"🚨 **High mortality risk** (higher than {mort_result['percentile']}%)"
+                        recommendation = "Schedule comprehensive health evaluation"
+                        urgency_color = "#e67e22"
+                    elif mort_result['percentile'] >= 50:
+                        interpretation = f"⚡ **Moderate mortality risk** (top {100-mort_result['percentile']}%)"
+                        recommendation = "Focus on preventive health measures"
+                        urgency_color = "#8e44ad"
+                    else:
+                        interpretation = f"✅ **Lower mortality risk** (top {100-mort_result['percentile']}%)"
+                        recommendation = "Continue healthy lifestyle practices"
+                        urgency_color = "#27ae60"
+                    
+                    st.markdown(f"""
+                    <div style="background: linear-gradient(135deg, {urgency_color} 0%, {mort_result['color']} 100%); 
+                                padding: 2rem; border-radius: 15px; color: white; margin: 1rem 0;">
+                        <h3>🎯 Mortality Risk: {mort_result['percentile']}th Percentile</h3>
+                        <p style="font-size: 1.1rem; margin: 1rem 0;">{interpretation}</p>
+                        <hr style="border-color: rgba(255,255,255,0.3);">
+                        <p style="font-size: 1rem;"><strong>Recommendation:</strong> {recommendation}</p>
+                        <p style="font-size: 0.9rem; opacity: 0.9;"><em>Based on population mortality data for {gender.lower()}s aged {age_group}</em></p>
+                    </div>
+                    """, unsafe_allow_html=True)
             
-            # Display results in grid format
-            for i in range(0, num_diseases, cols_per_row):
-                cols = st.columns(cols_per_row)
-                for j in range(cols_per_row):
-                    if i + j < num_diseases:
-                        result = results[i + j]
-                        with cols[j]:
-                            # Create gauge chart
-                            fig = create_percentile_gauge(result['percentile'], result['disease'])
-                            st.plotly_chart(fig, use_container_width=True)
-                            
-                            # Risk interpretation
-                            if result['percentile'] >= 90:
-                                interpretation = f"⚠️ **Top {100-result['percentile']}% highest risk**"
-                                recommendation = "Consider medical consultation"
-                            elif result['percentile'] >= 75:
-                                interpretation = f"📈 **Higher than {result['percentile']}% of your demographic**"
-                                recommendation = "Monitor closely, lifestyle changes"
-                            elif result['percentile'] >= 50:
-                                interpretation = f"📊 **Average risk** (top {100-result['percentile']}%)"
-                                recommendation = "Continue healthy habits"
-                            else:
-                                interpretation = f"✅ **Lower risk** (top {100-result['percentile']}%)"
-                                recommendation = "Maintain current lifestyle"
-                            
-                            st.markdown(f"""
-                            <div class="{result['card_class']}">
-                                <h4>{result['disease']}</h4>
-                                <div class="percentile-number">{result['percentile']}th</div>
-                                <p>Percentile</p>
-                                <p style="font-size: 0.8rem; opacity: 0.9;">{result['category']}</p>
-                                <hr style="border-color: rgba(255,255,255,0.3);">
-                                <p style="font-size: 0.9rem;">{interpretation}</p>
-                                <p style="font-size: 0.8rem;"><em>{recommendation}</em></p>
-                            </div>
-                            """, unsafe_allow_html=True)
+            if disease_results:
+                st.markdown("### 🏥 Disease-Specific Risk Assessment")
+                
+                # Sort by percentile (highest risk first)
+                disease_results.sort(key=lambda x: x['percentile'], reverse=True)
+                
+                # Create dynamic grid layout based on number of diseases
+                num_diseases = len(disease_results)
+                if num_diseases <= 3:
+                    cols_per_row = num_diseases
+                elif num_diseases <= 6:
+                    cols_per_row = 3
+                elif num_diseases <= 9:
+                    cols_per_row = 3
+                else:
+                    cols_per_row = 4
+                
+                # Display results in grid format
+                for i in range(0, num_diseases, cols_per_row):
+                    cols = st.columns(cols_per_row)
+                    for j in range(cols_per_row):
+                        if i + j < num_diseases:
+                            result = disease_results[i + j]
+                            with cols[j]:
+                                # Create gauge chart
+                                fig = create_percentile_gauge(result['percentile'], result['disease'])
+                                st.plotly_chart(fig, use_container_width=True)
+                                
+                                # Risk interpretation
+                                if result['percentile'] >= 90:
+                                    interpretation = f"⚠️ **Top {100-result['percentile']}% highest risk**"
+                                    recommendation = "Consider medical consultation"
+                                elif result['percentile'] >= 75:
+                                    interpretation = f"📈 **Higher than {result['percentile']}% of your demographic**"
+                                    recommendation = "Monitor closely, lifestyle changes"
+                                elif result['percentile'] >= 50:
+                                    interpretation = f"📊 **Average risk** (top {100-result['percentile']}%)"
+                                    recommendation = "Continue healthy habits"
+                                else:
+                                    interpretation = f"✅ **Lower risk** (top {100-result['percentile']}%)"
+                                    recommendation = "Maintain current lifestyle"
+                                
+                                st.markdown(f"""
+                                <div class="{result['card_class']}">
+                                    <h4>{result['disease']}</h4>
+                                    <div class="percentile-number">{result['percentile']}th</div>
+                                    <p>Percentile</p>
+                                    <p style="font-size: 0.8rem; opacity: 0.9;">{result['category']}</p>
+                                    <hr style="border-color: rgba(255,255,255,0.3);">
+                                    <p style="font-size: 0.9rem;">{interpretation}</p>
+                                    <p style="font-size: 0.8rem;"><em>{recommendation}</em></p>
+                                </div>
+                                """, unsafe_allow_html=True)
             
-            # Category-wise summary
+            # Category-wise summary (including Mortality Risk)
             st.markdown("### 📊 Risk Summary by Category")
             
             # Group results by category
             category_summary = {}
-            for result in results:
+            for result in results:  # Include all results (mortality + diseases)
                 cat = result['category']
                 if cat not in category_summary:
                     category_summary[cat] = {'high': 0, 'moderate': 0, 'average': 0, 'low': 0, 'diseases': []}
@@ -969,19 +1078,25 @@ def main():
                         total = len(summary['diseases'])
                         high_pct = (summary['high'] / total) * 100
                         
-                        # Choose color based on risk level
-                        if high_pct >= 50:
+                        # Special styling for Mortality Risk category
+                        if category == 'Mortality Risk':
+                            bg_color = "linear-gradient(135deg, #2c2c54 0%, #40407a 100%)"
+                            icon = "⚰️"
+                        elif high_pct >= 50:
                             bg_color = "linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)"
+                            icon = "🚨"
                         elif summary['moderate'] > 0:
                             bg_color = "linear-gradient(135deg, #ffa726 0%, #ff9800 100%)"
+                            icon = "⚠️"
                         else:
                             bg_color = "linear-gradient(135deg, #66bb6a 0%, #4caf50 100%)"
+                            icon = "✅"
                         
                         st.markdown(f"""
                         <div style="background: {bg_color}; padding: 1.5rem; border-radius: 15px; 
                                     color: white; text-align: center; margin: 0.5rem 0;">
-                            <h4>{category}</h4>
-                            <p><strong>{total}</strong> diseases assessed</p>
+                            <h4>{icon} {category}</h4>
+                            <p><strong>{total}</strong> assessment{'s' if total > 1 else ''}</p>
                             <hr style="border-color: rgba(255,255,255,0.3);">
                             <p>🔴 High Risk: {summary['high']}</p>
                             <p>🟡 Moderate: {summary['moderate']}</p>
@@ -995,7 +1110,7 @@ def main():
             
             # Create comparison DataFrame
             comparison_df = pd.DataFrame({
-                'Disease': [r['disease'] for r in results],
+                'Condition': [r['disease'] for r in results],
                 'Category': [r['category'] for r in results],
                 'Your Percentile': [f"{r['percentile']}th" for r in results],
                 'Risk Level': [r['risk_category'] for r in results],
@@ -1010,7 +1125,7 @@ def main():
             
             # Style the dataframe
             def style_risk_level(val):
-                if 'High Risk' in val:
+                if 'Critical' in val or 'High Risk' in val:
                     return 'background-color: #ffebee; color: #c62828'
                 elif 'Moderate' in val:
                     return 'background-color: #fff3e0; color: #ef6c00'
@@ -1024,119 +1139,15 @@ def main():
                     'Cardiovascular': 'background-color: #ffebee; color: #c62828',
                     'Metabolic': 'background-color: #f3e5f5; color: #7b1fa2',
                     'Mental Health': 'background-color: #e8f5e8; color: #388e3c',
-                    'Other Conditions': 'background-color: #e3f2fd; color: #1976d2'
+                    'Other Conditions': 'background-color: #e3f2fd; color: #1976d2',
+                    'Mortality Risk': 'background-color: #e8eaf6; color: #3f51b5'
                 }
                 return colors.get(val, '')
             
             styled_df = comparison_df.style.applymap(style_risk_level, subset=['Risk Level'])\
                                            .applymap(style_category, subset=['Category'])
             st.dataframe(styled_df, use_container_width=True, hide_index=True)
-            
-            # Risk distribution visualization for top diseases
-            st.markdown("### 📊 Risk Distribution Analysis")
-            
-            # Show distribution for top 6 highest risk diseases
-            top_diseases = results[:6] if len(results) >= 6 else results
-            
-            if len(top_diseases) > 0:
-                # Create subplots for distribution curves
-                cols_subplot = 2 if len(top_diseases) > 1 else 1
-                rows_subplot = math.ceil(len(top_diseases) / cols_subplot)
-                
-                fig_dist = make_subplots(
-                    rows=rows_subplot, 
-                    cols=cols_subplot,
-                    subplot_titles=[f"{d['disease']}" for d in top_diseases],
-                    vertical_spacing=0.15,
-                    horizontal_spacing=0.12
-                )
-                
-                # Create sample distribution curve for each disease
-                x = np.linspace(0, 100, 100)
-                
-                for i, disease_result in enumerate(top_diseases):
-                    row = (i // cols_subplot) + 1
-                    col = (i % cols_subplot) + 1
-                    
-                    # Normal-like distribution curve
-                    y = np.exp(-((x-50)**2)/(2*25**2))
-                    
-                    # Population distribution
-                    fig_dist.add_trace(
-                        go.Scatter(
-                            x=x, y=y,
-                            fill='tozeroy',
-                            fillcolor='rgba(52, 152, 219, 0.3)',
-                            line=dict(color='rgba(52, 152, 219, 0.8)', width=2),
-                            name=f'Population Distribution',
-                            showlegend=(i == 0),
-                            hovertemplate='Percentile: %{x}<br>Density: %{y}<extra></extra>'
-                        ),
-                        row=row, col=col
-                    )
-                    
-                    # User's position
-                    user_percentile = disease_result['percentile']
-                    user_y = np.exp(-((user_percentile-50)**2)/(2*25**2))
-                    
-                    fig_dist.add_trace(
-                        go.Scatter(
-                            x=[user_percentile], 
-                            y=[user_y],
-                            mode='markers',
-                            name='Your Position',
-                            marker=dict(
-                                size=15, 
-                                color=disease_result['color'], 
-                                symbol='star',
-                                line=dict(width=2, color='white')
-                            ),
-                            showlegend=(i == 0),
-                            hovertemplate=f'<b>Your Position</b><br>Percentile: {user_percentile}<br>Risk Level: {disease_result["risk_category"]}<extra></extra>'
-                        ),
-                        row=row, col=col
-                    )
-                    
-                    # Add percentile markers
-                    percentile_marks = [25, 50, 75, 90]
-                    for pct in percentile_marks:
-                        if pct != user_percentile:  # Don't duplicate user's position
-                            fig_dist.add_vline(
-                                x=pct,
-                                line_dash="dot",
-                                line_color="gray",
-                                opacity=0.5,
-                                row=row, col=col
-                            )
-                
-                # Update layout
-                fig_dist.update_layout(
-                    height=300 * rows_subplot,
-                    title_text=f"Your Risk Position Among {gender}s Aged {age_group}",
-                    showlegend=True,
-                    font=dict(size=10)
-                )
-                
-                # Update axes
-                for i in range(len(top_diseases)):
-                    row = (i // cols_subplot) + 1
-                    col = (i % cols_subplot) + 1
-                    fig_dist.update_xaxes(title_text="Risk Percentile", row=row, col=col)
-                    fig_dist.update_yaxes(title_text="Population Density", row=row, col=col)
-                
-                st.plotly_chart(fig_dist, use_container_width=True)
-                
-                # Legend explanation
-                st.markdown(f"""
-                <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
-                    <strong>📖 Chart Legend:</strong><br>
-                    • <span style="color: #3498db;">Blue area</span>: Population distribution of risk in your demographic<br>
-                    • <span style="color: red;">⭐ Star</span>: Your risk position<br>
-                    • <span style="color: gray;">Dotted lines</span>: Common percentile markers (25th, 50th, 75th, 90th)<br>
-                    • Charts show where you rank compared to other {gender.lower()}s aged {age_group}
-                </div>
-                """, unsafe_allow_html=True)
-            
+        
         else:
             st.error("Could not calculate risk percentiles. Please check your inputs.")
     
@@ -1144,8 +1155,27 @@ def main():
     if 'results' in locals() and results:
         st.markdown("### 💡 Personalized Recommendations")
         
-        high_risk_diseases = [r for r in results if r['percentile'] >= 90]
-        moderate_risk_diseases = [r for r in results if 75 <= r['percentile'] < 90]
+        # Check for mortality risk first
+        mortality_result = [r for r in results if r['disease'] == 'Death']
+        if mortality_result and mortality_result[0]['percentile'] >= 75:
+            st.markdown(f"""
+            <div style="background: linear-gradient(135deg, #2c2c54 0%, #40407a 100%); 
+                        padding: 2rem; border-radius: 15px; color: white; margin: 1rem 0;
+                        border: 3px solid #6c5ce7;">
+                <h4>🚨 Priority Alert: Elevated Mortality Risk</h4>
+                <p>Your mortality risk percentile ({mortality_result[0]['percentile']}th) indicates you're in a higher risk group.</p>
+                <ul>
+                    <li>🏥 <strong>Schedule comprehensive medical evaluation immediately</strong></li>
+                    <li>🩺 Discuss all risk factors with your healthcare provider</li>
+                    <li>📋 Consider preventive screenings and health monitoring</li>
+                    <li>💊 Review all medications and supplements with your doctor</li>
+                    <li>🚨 Address modifiable risk factors urgently</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        high_risk_diseases = [r for r in results if r['percentile'] >= 90 and r['disease'] != 'Death']
+        moderate_risk_diseases = [r for r in results if 75 <= r['percentile'] < 90 and r['disease'] != 'Death']
         
         if high_risk_diseases:
             st.markdown(f"""
@@ -1250,6 +1280,12 @@ def main():
         - **50th-74th percentile:** Average risk - maintain healthy habits
         - **Below 50th percentile:** Lower than average risk - continue current lifestyle
         
+        **Special Note on Mortality Risk:**
+        - **Death/Mortality Risk** is assessed using the same percentile system
+        - This represents your overall mortality risk compared to your demographic peers
+        - Higher percentiles indicate elevated risk of mortality from all causes
+        - This is **not a prediction** but a population-based risk comparison
+        
         **Calculation Method:**
         1. Calculate your **Linear Predictor (LP)** using Cox model coefficients
         2. Compare your LP to the distribution of LPs in your demographic group
@@ -1266,18 +1302,21 @@ def main():
         **Data Source:**
         - Cox regression coefficients from Taiwan Biobank study
         - LP distributions calculated from population data (demographic-specific)
+        - Includes 18 disease conditions plus mortality risk assessment
         
         **Important Notes:**
         - Results are population-based associations, not individual predictions
         - Multiple factors beyond those in the model may affect individual risk
         - This tool is for educational purposes and doesn't replace medical advice
         - Genetic factors and family history are not included in this model
+        - **Mortality risk assessment should be discussed with healthcare providers**
         
         **Advantages of Percentile Approach:**
         - More intuitive than hazard ratios ("top 10%" vs "1.5x higher risk")
         - Age and gender-specific comparisons (fair demographic matching)
         - Clear action thresholds (90th percentile = high priority)
         - Better motivates preventive actions
+        - Includes comprehensive mortality risk assessment
         """)
     
     # Footer
@@ -1288,7 +1327,8 @@ def main():
         Risk percentiles are based on population data and Cox regression models. Individual risk may vary 
         significantly due to genetic factors, family history, and other variables not captured in the model. 
         High percentile rankings (especially 90th+) suggest discussing with a healthcare provider, but this 
-        tool cannot diagnose conditions or replace professional medical evaluation.
+        tool cannot diagnose conditions or replace professional medical evaluation. 
+        <strong>Mortality risk assessments should be discussed with qualified healthcare professionals.</strong>
     </div>
     """, unsafe_allow_html=True)
     
@@ -1296,10 +1336,10 @@ def main():
     <div style="text-align: center; color: #95a5a6; font-size: 0.8rem; margin-top: 1rem;">
         <em>Risk percentiles calculated using Cox regression model and demographic-specific LP distributions.<br>
         BMI automatically calculated from height ({height} {height_unit}) and weight ({weight} {weight_unit}).<br>
-        Percentile rankings show your position relative to people of your same age group and gender.</em>
+        Percentile rankings show your position relative to people of your same age group and gender.<br>
+        Assessment includes {len(diseases)} conditions: 18 diseases + mortality risk.</em>
     </div>
     """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
-
