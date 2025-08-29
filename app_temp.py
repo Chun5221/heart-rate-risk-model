@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Aug 18 16:55:53 2025
+Updated Heart Rate Risk Percentile Calculator
+Modified on Fri Aug 29 2025 use new model results with categorical BMI
 Author: Modified from original app3_HR.py
 
 @author: chun5
@@ -138,316 +139,358 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Load and parse the Cox regression model coefficients (all diseases including Death)
+# Load and parse the Cox regression model coefficients from the new file
 @st.cache_data
 def load_model_coefficients():
-    """Load the Cox regression model coefficients from the updated CSV data"""
-    csv_data = """Daisease namw,Variable,Coef
-Atrial Fibrillation,HR_cat60-69,REF
-Atrial Fibrillation,HR_cat<60,0.245753
-Atrial Fibrillation,HR_cat70-79,0.007172
-Atrial Fibrillation,HR_cat80-89,0.285073
-Atrial Fibrillation,HR_cat>=90,0.626423
-Atrial Fibrillation,AGE,0.092884
-Atrial Fibrillation,MALE,REF
-Atrial Fibrillation,FERMALE,-0.826015
-Atrial Fibrillation,BMI,0.052884
-Atrial Fibrillation,Nerver_smoke,REF
-Atrial Fibrillation,Ever_smoke,0.040906
-Atrial Fibrillation,Now_smoke,-0.22748
-Atrial Fibrillation,Nerver_drink,REF
-Atrial Fibrillation,Ever_drink,0.114189
-Atrial Fibrillation,Now_drink,0.079308
-Anxiety,HR_cat60-69,REF
-Anxiety,HR_cat<60,-0.0147946
-Anxiety,HR_cat70-79,0.0331788
-Anxiety,HR_cat80-89,0.079773
-Anxiety,HR_cat>=90,0.0326789
-Anxiety,AGE,0.0221697
-Anxiety,MALE,REF
-Anxiety,FERMALE,0.5610132
-Anxiety,BMI,-0.0212976
-Anxiety,Nerver_smoke,REF
-Anxiety,Ever_smoke,0.1371077
-Anxiety,Now_smoke,0.1912624
-Anxiety,Nerver_drink,REF
-Anxiety,Ever_drink,0.2342184
-Anxiety,Now_drink,0.145487
-Chronic Kidney Disease,HR_cat60-69,REF
-Chronic Kidney Disease,HR_cat<60,-0.037829
-Chronic Kidney Disease,HR_cat70-79,0.114072
-Chronic Kidney Disease,HR_cat80-89,0.2957
-Chronic Kidney Disease,HR_cat>=90,0.720731
-Chronic Kidney Disease,AGE,0.067726
-Chronic Kidney Disease,MALE,REF
-Chronic Kidney Disease,FERMALE,-0.336082
-Chronic Kidney Disease,BMI,0.081698
-Chronic Kidney Disease,Nerver_smoke,REF
-Chronic Kidney Disease,Ever_smoke,0.034987
-Chronic Kidney Disease,Now_smoke,0.035351
-Chronic Kidney Disease,Nerver_drink,REF
-Chronic Kidney Disease,Ever_drink,0.283053
-Chronic Kidney Disease,Now_drink,-0.097787
-GERD,HR_cat60-69,REF
-GERD,HR_cat<60,0.0173609
-GERD,HR_cat70-79,0.106481
-GERD,HR_cat80-89,0.1243943
-GERD,HR_cat>=90,0.1830798
-GERD,AGE,0.0110515
-GERD,MALE,REF
-GERD,FERMALE,0.1725073
-GERD,BMI,0.0031696
-GERD,Nerver_smoke,REF
-GERD,Ever_smoke,0.1186117
-GERD,Now_smoke,-0.0538687
-GERD,Nerver_drink,REF
-GERD,Ever_drink,0.0527654
-GERD,Now_drink,0.0680244
-Heart Failure,HR_cat60-69,REF
-Heart Failure,HR_cat<60,0.094597
-Heart Failure,HR_cat70-79,0.046528
-Heart Failure,HR_cat80-89,0.281359
-Heart Failure,HR_cat>=90,0.325456
-Heart Failure,AGE,0.077657
-Heart Failure,MALE,REF
-Heart Failure,FERMALE,-0.053006
-Heart Failure,BMI,0.10726
-Heart Failure,Nerver_smoke,REF
-Heart Failure,Ever_smoke,0.152996
-Heart Failure,Now_smoke,0.254233
-Heart Failure,Nerver_drink,REF
-Heart Failure,Ever_drink,0.128193
-Heart Failure,Now_drink,-0.019435
-Myocardial Infarction,HR_cat60-69,REF
-Myocardial Infarction,HR_cat<60,0.266526
-Myocardial Infarction,HR_cat70-79,0.093003
-Myocardial Infarction,HR_cat80-89,0.144828
-Myocardial Infarction,HR_cat>=90,0.145092
-Myocardial Infarction,AGE,0.079069
-Myocardial Infarction,MALE,REF
-Myocardial Infarction,FERMALE,-1.035229
-Myocardial Infarction,BMI,0.088253
-Myocardial Infarction,Nerver_smoke,REF
-Myocardial Infarction,Ever_smoke,0.443004
-Myocardial Infarction,Now_smoke,0.85316
-Myocardial Infarction,Nerver_drink,REF
-Myocardial Infarction,Ever_drink,0.236342
-Myocardial Infarction,Now_drink,-0.37105
-Type 2 Diabetes,HR_cat60-69,REF
-Type 2 Diabetes,HR_cat<60,-0.115098
-Type 2 Diabetes,HR_cat70-79,0.237972
-Type 2 Diabetes,HR_cat80-89,0.504242
-Type 2 Diabetes,HR_cat>=90,0.701339
-Type 2 Diabetes,AGE,0.057474
-Type 2 Diabetes,MALE,REF
-Type 2 Diabetes,FERMALE,0.093901
-Type 2 Diabetes,BMI,0.112338
-Type 2 Diabetes,Nerver_smoke,REF
-Type 2 Diabetes,Ever_smoke,0.135605
-Type 2 Diabetes,Now_smoke,0.18522
-Type 2 Diabetes,Nerver_drink,REF
-Type 2 Diabetes,Ever_drink,0.168757
-Type 2 Diabetes,Now_drink,0.122939
-Anemia,HR_cat60-69,REF
-Anemia,HR_cat<60,-0.0392645
-Anemia,HR_cat70-79,0.0977869
-Anemia,HR_cat80-89,0.1981423
-Anemia,HR_cat>=90,0.0895871
-Anemia,AGE,-0.0061833
-Anemia,MALE,REF
-Anemia,FERMALE,1.1290142
-Anemia,BMI,-0.0073061
-Anemia,Nerver_smoke,REF
-Anemia,Ever_smoke,0.2113872
-Anemia,Now_smoke,-0.0535957
-Anemia,Nerver_drink,REF
-Anemia,Ever_drink,0.1674907
-Anemia,Now_drink,-0.1735583
-Angina Pectoris,HR_cat60-69,REF
-Angina Pectoris,HR_cat<60,0.14336
-Angina Pectoris,HR_cat70-79,-0.072307
-Angina Pectoris,HR_cat80-89,0.031692
-Angina Pectoris,HR_cat>=90,-0.096771
-Angina Pectoris,AGE,0.05689
-Angina Pectoris,MALE,REF
-Angina Pectoris,FERMALE,-0.184188
-Angina Pectoris,BMI,0.055886
-Angina Pectoris,Nerver_smoke,REF
-Angina Pectoris,Ever_smoke,0.204652
-Angina Pectoris,Now_smoke,0.206606
-Angina Pectoris,Nerver_drink,REF
-Angina Pectoris,Ever_drink,0.192616
-Angina Pectoris,Now_drink,-0.005281
-Asthma,HR_cat60-69,REF
-Asthma,HR_cat<60,-0.106883
-Asthma,HR_cat70-79,0.022602
-Asthma,HR_cat80-89,0.053949
-Asthma,HR_cat>=90,0.246947
-Asthma,AGE,0.018771
-Asthma,MALE,REF
-Asthma,FERMALE,0.34897
-Asthma,BMI,0.051065
-Asthma,Nerver_smoke,REF
-Asthma,Ever_smoke,0.180858
-Asthma,Now_smoke,0.158275
-Asthma,Nerver_drink,REF
-Asthma,Ever_drink,0.048924
-Asthma,Now_drink,-0.075188
-Atherosclerosis,HR_cat60-69,REF
-Atherosclerosis,HR_cat<60,0.143407
-Atherosclerosis,HR_cat70-79,-0.046939
-Atherosclerosis,HR_cat80-89,-0.010829
-Atherosclerosis,HR_cat>=90,-0.193343
-Atherosclerosis,AGE,0.076931
-Atherosclerosis,MALE,REF
-Atherosclerosis,FERMALE,-0.474543
-Atherosclerosis,BMI,0.073382
-Atherosclerosis,Nerver_smoke,REF
-Atherosclerosis,Ever_smoke,0.218909
-Atherosclerosis,Now_smoke,0.199181
-Atherosclerosis,Nerver_drink,REF
-Atherosclerosis,Ever_drink,0.250373
-Atherosclerosis,Now_drink,0.049339
-Cardiac Arrhythmia,HR_cat60-69,REF
-Cardiac Arrhythmia,HR_cat<60,0.180933
-Cardiac Arrhythmia,HR_cat70-79,0.067217
-Cardiac Arrhythmia,HR_cat80-89,0.225652
-Cardiac Arrhythmia,HR_cat>=90,0.416275
-Cardiac Arrhythmia,AGE,0.033826
-Cardiac Arrhythmia,MALE,REF
-Cardiac Arrhythmia,FERMALE,0.200422
-Cardiac Arrhythmia,BMI,0.003792
-Cardiac Arrhythmia,Nerver_smoke,REF
-Cardiac Arrhythmia,Ever_smoke,0.062005
-Cardiac Arrhythmia,Now_smoke,-0.058892
-Cardiac Arrhythmia,Nerver_drink,REF
-Cardiac Arrhythmia,Ever_drink,0.152499
-Cardiac Arrhythmia,Now_drink,0.055137
-Depression,HR_cat60-69,REF
-Depression,HR_cat<60,0.1195075
-Depression,HR_cat70-79,0.1140151
-Depression,HR_cat80-89,0.337861
-Depression,HR_cat>=90,0.5705119
-Depression,AGE,0.0123584
-Depression,MALE,REF
-Depression,FERMALE,0.5986412
-Depression,BMI,-0.009728
-Depression,Nerver_smoke,REF
-Depression,Ever_smoke,0.3088563
-Depression,Now_smoke,0.5593592
-Depression,Nerver_drink,REF
-Depression,Ever_drink,0.3865247
-Depression,Now_drink,-0.0006955
-Hypertension,HR_cat60-69,REF
-Hypertension,HR_cat<60,-0.057906
-Hypertension,HR_cat70-79,0.19495
-Hypertension,HR_cat80-89,0.391184
-Hypertension,HR_cat>=90,0.646424
-Hypertension,AGE,0.058602
-Hypertension,MALE,REF
-Hypertension,FERMALE,-0.109502
-Hypertension,BMI,0.115599
-Hypertension,Nerver_smoke,REF
-Hypertension,Ever_smoke,0.046438
-Hypertension,Now_smoke,0.099012
-Hypertension,Nerver_drink,REF
-Hypertension,Ever_drink,0.185565
-Hypertension,Now_drink,0.281362
-Ischemic Heart Disease,HR_cat60-69,REF
-Ischemic Heart Disease,HR_cat<60,0.176283
-Ischemic Heart Disease,HR_cat70-79,0.024369
-Ischemic Heart Disease,HR_cat80-89,-0.016693
-Ischemic Heart Disease,HR_cat>=90,-0.01592
-Ischemic Heart Disease,AGE,0.076265
-Ischemic Heart Disease,MALE,REF
-Ischemic Heart Disease,FERMALE,-0.201685
-Ischemic Heart Disease,BMI,0.072083
-Ischemic Heart Disease,Nerver_smoke,REF
-Ischemic Heart Disease,Ever_smoke,0.110185
-Ischemic Heart Disease,Now_smoke,0.2139
-Ischemic Heart Disease,Nerver_drink,REF
-Ischemic Heart Disease,Ever_drink,0.222689
-Ischemic Heart Disease,Now_drink,-0.11555
-Ischemic Stroke,HR_cat60-69,REF
-Ischemic Stroke,HR_cat<60,0.096548
-Ischemic Stroke,HR_cat70-79,0.27437
-Ischemic Stroke,HR_cat80-89,0.434256
-Ischemic Stroke,HR_cat>=90,0.503506
-Ischemic Stroke,AGE,0.079883
-Ischemic Stroke,MALE,REF
-Ischemic Stroke,FERMALE,-0.182232
-Ischemic Stroke,BMI,0.052259
-Ischemic Stroke,Nerver_smoke,REF
-Ischemic Stroke,Ever_smoke,0.087919
-Ischemic Stroke,Now_smoke,0.408596
-Ischemic Stroke,Nerver_drink,REF
-Ischemic Stroke,Ever_drink,0.261755
-Ischemic Stroke,Now_drink,0.224026
-Migraine,HR_cat60-69,REF
-Migraine,HR_cat<60,-0.048947
-Migraine,HR_cat70-79,-0.005818
-Migraine,HR_cat80-89,0.158086
-Migraine,HR_cat>=90,0.225437
-Migraine,AGE,-0.013665
-Migraine,MALE,REF
-Migraine,FERMALE,0.948374
-Migraine,BMI,0.015827
-Migraine,Nerver_smoke,REF
-Migraine,Ever_smoke,0.167694
-Migraine,Now_smoke,0.326955
-Migraine,Nerver_drink,REF
-Migraine,Ever_drink,-0.270397
-Migraine,Now_drink,-0.253202
-Parkinson's Disease,HR_cat60-69,REF
-Parkinson's Disease,HR_cat<60,0.2167
-Parkinson's Disease,HR_cat70-79,0.364965
-Parkinson's Disease,HR_cat80-89,0.259543
-Parkinson's Disease,HR_cat>=90,0.564756
-Parkinson's Disease,AGE,0.133954
-Parkinson's Disease,MALE,REF
-Parkinson's Disease,FERMALE,-0.643991
-Parkinson's Disease,BMI,0.030553
-Parkinson's Disease,Nerver_smoke,REF
-Parkinson's Disease,Ever_smoke,-0.462127
-Parkinson's Disease,Now_smoke,-0.187978
-Parkinson's Disease,Nerver_drink,REF
-Parkinson's Disease,Ever_drink,0.002671
-Parkinson's Disease,Now_drink,-0.688835
-Death,HR_cat60-69,REF
-Death,HR_cat<60,0.034669
-Death,HR_cat70-79,0.245161
-Death,HR_cat80-89,0.55444
-Death,HR_cat>=90,0.769643
-Death,AGE,0.079282
-Death,MALE,REF
-Death,FERMALE,-0.674196
-Death,BMI,0.036303
-Death,Nerver_smoke,REF
-Death,Ever_smoke,-0.01009
-Death,Now_smoke,0.590807
-Death,Nerver_drink,REF
-Death,Ever_drink,0.491235
-Death,Now_drink,0.246215"""
+    """Load the Cox regression model coefficients from the new CSV data file"""
+    # Read the uploaded file data directly
+    data_content = """Disease,Variable,Coef
+DEATH,HR_cat60-69,REF
+DEATH,HR_cat<60,0.03559
+DEATH,HR_cat70-79,0.245138
+DEATH,HR_cat80-89,0.552592
+DEATH,HR_cat>=90,0.760978
+DEATH,AGE,0.079182
+DEATH,MALE,REF
+DEATH,FERMALE,-0.687091
+DEATH,bmi_normal,REF
+DEATH,bmi_underweight,0.47405
+DEATH,bmi_overweight,0.157231
+DEATH,bmi_obese,0.327973
+DEATH,Nerver_smoke,REF
+DEATH,Ever_smoke,-0.006856
+DEATH,Now_smoke,0.589674
+DEATH,Nerver_drink,REF
+DEATH,Ever_drink,0.492511
+DEATH,Now_drink,0.247009
+t2d,HR_cat60-69,REF
+t2d,HR_cat<60,-0.149824
+t2d,HR_cat70-79,0.120603
+t2d,HR_cat80-89,0.463608
+t2d,HR_cat>=90,0.595579
+t2d,AGE,0.065918
+t2d,MALE,REF
+t2d,FERMALE,0.066054
+t2d,bmi_normal,REF
+t2d,bmi_underweight,-0.903821
+t2d,bmi_overweight,0.438925
+t2d,bmi_obese,1.043188
+t2d,Nerver_smoke,REF
+t2d,Ever_smoke,0.203295
+t2d,Now_smoke,0.266898
+t2d,Nerver_drink,REF
+t2d,Ever_drink,0.047062
+t2d,Now_drink,0.160096
+af,HR_cat60-69,REF
+af,HR_cat<60,0.19999
+af,HR_cat70-79,0.02885
+af,HR_cat80-89,0.35315
+af,HR_cat>=90,0.58248
+af,AGE,0.09624
+af,MALE,REF
+af,FERMALE,-0.77577
+af,bmi_normal,REF
+af,bmi_underweight,-1.1248
+af,bmi_overweight,0.13015
+af,bmi_obese,0.38955
+af,Nerver_smoke,REF
+af,Ever_smoke,0.09146
+af,Now_smoke,-0.30515
+af,Nerver_drink,REF
+af,Ever_drink,-0.03565
+af,Now_drink,0.17075
+anxiety,HR_cat60-69,REF
+anxiety,HR_cat<60,-0.02914
+anxiety,HR_cat70-79,0.06873
+anxiety,HR_cat80-89,0.08684
+anxiety,HR_cat>=90,0.05308
+anxiety,AGE,0.02841
+anxiety,MALE,REF
+anxiety,FERMALE,0.52751
+anxiety,bmi_normal,REF
+anxiety,bmi_underweight,0.11908
+anxiety,bmi_overweight,-0.08715
+anxiety,bmi_obese,-0.20691
+anxiety,Nerver_smoke,REF
+anxiety,Ever_smoke,0.12562
+anxiety,Now_smoke,0.26357
+anxiety,Nerver_drink,REF
+anxiety,Ever_drink,0.3835
+anxiety,Now_drink,0.18204
+ckd,HR_cat60-69,REF
+ckd,HR_cat<60,0.009221
+ckd,HR_cat70-79,0.197843
+ckd,HR_cat80-89,0.428913
+ckd,HR_cat>=90,0.996948
+ckd,AGE,0.078225
+ckd,MALE,REF
+ckd,FERMALE,-0.448045
+ckd,bmi_normal,REF
+ckd,bmi_underweight,-0.236165
+ckd,bmi_overweight,0.413529
+ckd,bmi_obese,0.869457
+ckd,Nerver_smoke,REF
+ckd,Ever_smoke,0.061577
+ckd,Now_smoke,0.090903
+ckd,Nerver_drink,REF
+ckd,Ever_drink,0.240892
+ckd,Now_drink,-0.11281
+gerd,HR_cat60-69,REF
+gerd,HR_cat<60,0.044928
+gerd,HR_cat70-79,0.097214
+gerd,HR_cat80-89,0.13919
+gerd,HR_cat>=90,0.143378
+gerd,AGE,0.023791
+gerd,MALE,REF
+gerd,FERMALE,0.143428
+gerd,bmi_normal,REF
+gerd,bmi_underweight,0.057324
+gerd,bmi_overweight,0.003157
+gerd,bmi_obese,-0.024195
+gerd,Nerver_smoke,REF
+gerd,Ever_smoke,0.136964
+gerd,Now_smoke,0.028098
+gerd,Nerver_drink,REF
+gerd,Ever_drink,-0.015931
+gerd,Now_drink,-0.077732
+heart_failure,HR_cat60-69,REF
+heart_failure,HR_cat<60,0.23987
+heart_failure,HR_cat70-79,0.12069
+heart_failure,HR_cat80-89,0.49327
+heart_failure,HR_cat>=90,0.40777
+heart_failure,AGE,0.07843
+heart_failure,MALE,REF
+heart_failure,FERMALE,-0.25105
+heart_failure,bmi_normal,REF
+heart_failure,bmi_underweight,-0.79253
+heart_failure,bmi_overweight,0.48228
+heart_failure,bmi_obese,1.02165
+heart_failure,Nerver_smoke,REF
+heart_failure,Ever_smoke,0.21295
+heart_failure,Now_smoke,0.28765
+heart_failure,Nerver_drink,REF
+heart_failure,Ever_drink,0.07138
+heart_failure,Now_drink,-0.22844
+anemias,HR_cat60-69,REF
+anemias,HR_cat<60,-0.133022
+anemias,HR_cat70-79,0.106695
+anemias,HR_cat80-89,0.295665
+anemias,HR_cat>=90,0.173965
+anemias,AGE,-0.012707
+anemias,MALE,REF
+anemias,FERMALE,1.233641
+anemias,bmi_normal,REF
+anemias,bmi_underweight,-0.102467
+anemias,bmi_overweight,-0.041169
+anemias,bmi_obese,-0.064932
+anemias,Nerver_smoke,REF
+anemias,Ever_smoke,0.281375
+anemias,Now_smoke,-0.192209
+anemias,Nerver_drink,REF
+anemias,Ever_drink,0.227121
+anemias,Now_drink,-0.14395
+asthma,HR_cat60-69,REF
+asthma,HR_cat<60,-0.05073
+asthma,HR_cat70-79,-0.02929
+asthma,HR_cat80-89,0.25838
+asthma,HR_cat>=90,0.26451
+asthma,AGE,0.03481
+asthma,MALE,REF
+asthma,FERMALE,0.33305
+asthma,bmi_normal,REF
+asthma,bmi_underweight,-0.02926
+asthma,bmi_overweight,0.24735
+asthma,bmi_obese,0.53764
+asthma,Nerver_smoke,REF
+asthma,Ever_smoke,0.25093
+asthma,Now_smoke,0.04096
+asthma,Nerver_drink,REF
+asthma,Ever_drink,0.12783
+asthma,Now_drink,-0.25044
+atheroscclerosis,HR_cat60-69,REF
+atheroscclerosis,HR_cat<60,0.213643
+atheroscclerosis,HR_cat70-79,-0.075494
+atheroscclerosis,HR_cat80-89,0.078521
+atheroscclerosis,HR_cat>=90,-0.28857
+atheroscclerosis,AGE,0.082831
+atheroscclerosis,MALE,REF
+atheroscclerosis,FERMALE,-0.659888
+atheroscclerosis,bmi_normal,REF
+atheroscclerosis,bmi_underweight,-0.405545
+atheroscclerosis,bmi_overweight,0.241369
+atheroscclerosis,bmi_obese,0.632751
+atheroscclerosis,Nerver_smoke,REF
+atheroscclerosis,Ever_smoke,0.154472
+atheroscclerosis,Now_smoke,0.195769
+atheroscclerosis,Nerver_drink,REF
+atheroscclerosis,Ever_drink,0.237052
+atheroscclerosis,Now_drink,-0.044435
+cardiac_arrhythmia,HR_cat60-69,REF
+cardiac_arrhythmia,HR_cat<60,0.236325
+cardiac_arrhythmia,HR_cat70-79,0.072188
+cardiac_arrhythmia,HR_cat80-89,0.293397
+cardiac_arrhythmia,HR_cat>=90,0.502355
+cardiac_arrhythmia,AGE,0.054073
+cardiac_arrhythmia,MALE,REF
+cardiac_arrhythmia,FERMALE,0.234635
+cardiac_arrhythmia,bmi_normal,REF
+cardiac_arrhythmia,bmi_underweight,-0.024617
+cardiac_arrhythmia,bmi_overweight,0.197351
+cardiac_arrhythmia,bmi_obese,0.220454
+cardiac_arrhythmia,Nerver_smoke,REF
+cardiac_arrhythmia,Ever_smoke,0.072327
+cardiac_arrhythmia,Now_smoke,0.122191
+cardiac_arrhythmia,Nerver_drink,REF
+cardiac_arrhythmia,Ever_drink,0.024056
+cardiac_arrhythmia,Now_drink,-0.072795
+dementia,HR_cat60-69,REF
+dementia,HR_cat<60,0.424231
+dementia,HR_cat70-79,0.150302
+dementia,HR_cat80-89,0.143758
+dementia,HR_cat>=90,0.420416
+dementia,AGE,0.23123
+dementia,MALE,REF
+dementia,FERMALE,0.220448
+dementia,bmi_normal,REF
+dementia,bmi_underweight,0.274853
+dementia,bmi_overweight,0.228676
+dementia,bmi_obese,0.246473
+dementia,Nerver_smoke,REF
+dementia,Ever_smoke,-0.093189
+dementia,Now_smoke,0.032187
+dementia,Nerver_drink,REF
+dementia,Ever_drink,0.191469
+dementia,Now_drink,-0.578951
+depression,HR_cat60-69,REF
+depression,HR_cat<60,0.04088
+depression,HR_cat70-79,0.078
+depression,HR_cat80-89,0.34531
+depression,HR_cat>=90,0.38877
+depression,AGE,0.02033
+depression,MALE,REF
+depression,FERMALE,0.55122
+depression,bmi_normal,REF
+depression,bmi_underweight,0.34393
+depression,bmi_overweight,-0.1258
+depression,bmi_obese,0.02531
+depression,Nerver_smoke,REF
+depression,Ever_smoke,0.36363
+depression,Now_smoke,0.63215
+depression,Nerver_drink,REF
+depression,Ever_drink,0.42167
+depression,Now_drink,0.06226
+hypertension,HR_cat60-69,REF
+hypertension,HR_cat<60,-0.074567
+hypertension,HR_cat70-79,0.236392
+hypertension,HR_cat80-89,0.473373
+hypertension,HR_cat>=90,0.817759
+hypertension,AGE,0.060626
+hypertension,MALE,REF
+hypertension,FERMALE,-0.158935
+hypertension,bmi_normal,REF
+hypertension,bmi_underweight,-0.631423
+hypertension,bmi_overweight,0.559873
+hypertension,bmi_obese,1.16172
+hypertension,Nerver_smoke,REF
+hypertension,Ever_smoke,0.097167
+hypertension,Now_smoke,0.081723
+hypertension,Nerver_drink,REF
+hypertension,Ever_drink,0.222135
+hypertension,Now_drink,0.339044
+ischemic_heart_disease,HR_cat60-69,REF
+ischemic_heart_disease,HR_cat<60,0.184318
+ischemic_heart_disease,HR_cat70-79,0.007331
+ischemic_heart_disease,HR_cat80-89,0.027601
+ischemic_heart_disease,HR_cat>=90,-0.25622
+ischemic_heart_disease,AGE,0.086786
+ischemic_heart_disease,MALE,REF
+ischemic_heart_disease,FERMALE,-0.345756
+ischemic_heart_disease,bmi_normal,REF
+ischemic_heart_disease,bmi_underweight,-0.592953
+ischemic_heart_disease,bmi_overweight,0.321841
+ischemic_heart_disease,bmi_obese,0.617107
+ischemic_heart_disease,Nerver_smoke,REF
+ischemic_heart_disease,Ever_smoke,0.133943
+ischemic_heart_disease,Now_smoke,0.279845
+ischemic_heart_disease,Nerver_drink,REF
+ischemic_heart_disease,Ever_drink,0.377737
+ischemic_heart_disease,Now_drink,-0.069477
+ischemic_stroke,HR_cat60-69,REF
+ischemic_stroke,HR_cat<60,0.071456
+ischemic_stroke,HR_cat70-79,0.279148
+ischemic_stroke,HR_cat80-89,0.437323
+ischemic_stroke,HR_cat>=90,0.837057
+ischemic_stroke,AGE,0.09066
+ischemic_stroke,MALE,REF
+ischemic_stroke,FERMALE,-0.260478
+ischemic_stroke,bmi_normal,REF
+ischemic_stroke,bmi_underweight,-0.068895
+ischemic_stroke,bmi_overweight,0.440064
+ischemic_stroke,bmi_obese,0.53031
+ischemic_stroke,Nerver_smoke,REF
+ischemic_stroke,Ever_smoke,0.209785
+ischemic_stroke,Now_smoke,0.657639
+ischemic_stroke,Nerver_drink,REF
+ischemic_stroke,Ever_drink,0.203407
+ischemic_stroke,Now_drink,0.136869
+migraine,HR_cat60-69,REF
+migraine,HR_cat<60,0.1785802
+migraine,HR_cat70-79,-0.0222494
+migraine,HR_cat80-89,0.3703828
+migraine,HR_cat>=90,0.492667
+migraine,AGE,0.0005605
+migraine,MALE,REF
+migraine,FERMALE,1.2063488
+migraine,bmi_normal,REF
+migraine,bmi_underweight,-0.3796271
+migraine,bmi_overweight,0.1365617
+migraine,bmi_obese,0.1635858
+migraine,Nerver_smoke,REF
+migraine,Ever_smoke,0.30192
+migraine,Now_smoke,0.2017923
+migraine,Nerver_drink,REF
+migraine,Ever_drink,0.3245442
+migraine,Now_drink,-0.3845493"""
     
     from io import StringIO
-    df = pd.read_csv(StringIO(csv_data))
-    df.columns = ['Disease_Name', 'Variable', 'Coef']
+    df = pd.read_csv(StringIO(data_content))
+    
+    # Clean up disease names and standardize
+    disease_name_map = {
+        'DEATH': 'Death',
+        't2d': 'Type 2 Diabetes',
+        'af': 'Atrial Fibrillation',
+        'anxiety': 'Anxiety',
+        'ckd': 'Chronic Kidney Disease',
+        'gerd': 'GERD',
+        'heart_failure': 'Heart Failure',
+        'anemias': 'Anemia',
+        'asthma': 'Asthma',
+        'atheroscclerosis': 'Atherosclerosis',
+        'cardiac_arrhythmia': 'Cardiac Arrhythmia',
+        'dementia': 'Dementia',
+        'depression': 'Depression',
+        'hypertension': 'Hypertension',
+        'ischemic_heart_disease': 'Ischemic Heart Disease',
+        'ischemic_stroke': 'Ischemic Stroke',
+        'migraine': 'Migraine'
+    }
+    
+    df['Disease'] = df['Disease'].map(disease_name_map)
     return df
 
-# Load sample LP distribution data (placeholder - you'll replace this with real data)
+# Load sample LP distribution data (updated for new diseases)
 @st.cache_data
 def load_lp_distributions():
     """
-    Placeholder for LP distribution data including Death model
+    LP distribution data for the updated disease list
     """
-    
-    # ALL DISEASES INCLUDING DEATH
     diseases = [
-        'Atrial Fibrillation', 'Anxiety', 'Chronic Kidney Disease', 'GERD', 
-        'Heart Failure', 'Myocardial Infarction', 'Type 2 Diabetes', 'Anemia',
-        'Angina Pectoris', 'Asthma', 'Atherosclerosis', 'Cardiac Arrhythmia',
-        'Depression', 'Hypertension', 'Ischemic Heart Disease', 'Ischemic Stroke',
-        'Migraine', "Parkinson's Disease", 'Death'
+        'Death', 'Type 2 Diabetes', 'Atrial Fibrillation', 'Anxiety', 
+        'Chronic Kidney Disease', 'GERD', 'Heart Failure', 'Anemia',
+        'Asthma', 'Atherosclerosis', 'Cardiac Arrhythmia', 'Dementia',
+        'Depression', 'Hypertension', 'Ischemic Heart Disease', 
+        'Ischemic Stroke', 'Migraine'
     ]
     
     genders = ['Male', 'Female']
@@ -461,9 +504,8 @@ def load_lp_distributions():
             for age_group in age_groups:
                 # Generate realistic sample LP distribution
                 if disease == 'Death':
-                    # Death/Mortality has unique characteristics
                     base_lp = np.random.normal(0.8, 1.0)  # Higher base risk, wider distribution
-                elif disease in ['Atrial Fibrillation', 'Heart Failure', 'Myocardial Infarction']:
+                elif disease in ['Atrial Fibrillation', 'Heart Failure']:
                     base_lp = np.random.normal(0.5, 0.8)  # Higher base risk
                 elif disease in ['Anxiety', 'Depression', 'Migraine']:
                     base_lp = np.random.normal(0.2, 0.6)  # Moderate base risk
@@ -474,9 +516,9 @@ def load_lp_distributions():
                 age_mid = int(age_group.split('-')[0]) + 5
                 age_effect = (age_mid - 50) * 0.02  # Older = higher risk
                 
-                # Special gender effects for Death and specific diseases
+                # Special gender effects
                 if disease == 'Death':
-                    gender_effect = -0.3 if gender == 'Female' else 0  # Females generally lower mortality risk
+                    gender_effect = -0.3 if gender == 'Female' else 0
                 elif gender == 'Female' and disease in ['Migraine', 'Anxiety', 'Anemia']:
                     gender_effect = 0.2
                 else:
@@ -489,7 +531,7 @@ def load_lp_distributions():
                 percentiles = np.sort(percentiles)
                 
                 sample_data.append({
-                    'Disease_Name': disease,
+                    'Disease': disease,
                     'Gender': gender,
                     'Age_Group': age_group,
                     'P5': percentiles[0],
@@ -529,25 +571,36 @@ def calculate_bmi(height, weight, height_unit, weight_unit):
         return None
 
 def get_bmi_category(bmi):
-    """Categorize BMI according to WHO standards"""
+    """Categorize BMI according to the model's categories"""
     if bmi < 18.5:
         return "Underweight", "#3498db"
-    elif bmi < 25:
+    elif bmi < 24:  # Changed from 25 to 24
         return "Normal weight", "#27ae60"
-    elif bmi < 30:
+    elif bmi < 27:  # Changed from 30 to 27
         return "Overweight", "#f39c12"
     else:
         return "Obese", "#e74c3c"
 
+def get_bmi_model_category(bmi):
+    """Get BMI category for model calculation (matches new model structure)"""
+    if bmi < 18.5:
+        return 'bmi_underweight'
+    elif bmi < 24:
+        return 'bmi_normal'  # Reference category
+    elif bmi < 27:
+        return 'bmi_overweight'
+    else:
+        return 'bmi_obese'
+
 def categorize_diseases(disease_name):
-    """Categorize diseases for filtering - Death gets its own category"""
+    """Categorize diseases for filtering"""
     if disease_name == 'Death':
         return 'Mortality Risk'
     
     cardiovascular_diseases = [
-        'Atrial Fibrillation', 'Heart Failure', 'Myocardial Infarction', 
-        'Cardiac Arrhythmia', 'Ischemic Heart Disease', 'Angina Pectoris', 
-        'Atherosclerosis', 'Hypertension', 'Ischemic Stroke'
+        'Atrial Fibrillation', 'Heart Failure', 'Cardiac Arrhythmia', 
+        'Ischemic Heart Disease', 'Atherosclerosis', 'Hypertension', 
+        'Ischemic Stroke'
     ]
     
     metabolic_diseases = [
@@ -555,11 +608,11 @@ def categorize_diseases(disease_name):
     ]
     
     mental_health = [
-        'Anxiety', 'Depression'
+        'Anxiety', 'Depression', 'Dementia'
     ]
     
     other_conditions = [
-        'GERD', 'Anemia', 'Asthma', 'Migraine', "Parkinson's Disease"
+        'GERD', 'Anemia', 'Asthma', 'Migraine'
     ]
     
     if disease_name in cardiovascular_diseases:
@@ -602,11 +655,11 @@ def get_age_group(age):
 def calculate_linear_predictor(disease_name, age, gender, hr, bmi, smoking_status, drinking_status, model_df):
     """
     Calculate linear predictor (LP) using Cox regression coefficients
-    LP = sum of (coefficient × variable_value)
+    Updated for categorical BMI model
     """
     try:
         # Filter coefficients for this disease
-        disease_coefs = model_df[model_df['Disease_Name'] == disease_name].copy()
+        disease_coefs = model_df[model_df['Disease'] == disease_name].copy()
         
         if disease_coefs.empty:
             return None
@@ -631,12 +684,14 @@ def calculate_linear_predictor(disease_name, age, gender, hr, bmi, smoking_statu
             if not gender_coef.empty and gender_coef.iloc[0]['Coef'] != 'REF':
                 lp += float(gender_coef.iloc[0]['Coef'])
         
-        # BMI (continuous variable)
-        bmi_coef = disease_coefs[disease_coefs['Variable'] == 'BMI']
-        if not bmi_coef.empty and bmi_coef.iloc[0]['Coef'] != 'REF':
-            lp += float(bmi_coef.iloc[0]['Coef']) * bmi
+        # BMI Category (reference is bmi_normal)
+        bmi_cat = get_bmi_model_category(bmi)
+        if bmi_cat != 'bmi_normal':  # Only add coefficient if not reference category
+            bmi_coef = disease_coefs[disease_coefs['Variable'] == bmi_cat]
+            if not bmi_coef.empty and bmi_coef.iloc[0]['Coef'] != 'REF':
+                lp += float(bmi_coef.iloc[0]['Coef'])
         
-        # Smoking Status (reference is Never_smoke)
+        # Smoking Status (reference is Nerver_smoke)
         if smoking_status == 'Former Smoker':
             smoke_coef = disease_coefs[disease_coefs['Variable'] == 'Ever_smoke']
             if not smoke_coef.empty and smoke_coef.iloc[0]['Coef'] != 'REF':
@@ -646,7 +701,7 @@ def calculate_linear_predictor(disease_name, age, gender, hr, bmi, smoking_statu
             if not smoke_coef.empty and smoke_coef.iloc[0]['Coef'] != 'REF':
                 lp += float(smoke_coef.iloc[0]['Coef'])
         
-        # Drinking Status (reference is Never_drink)
+        # Drinking Status (reference is Nerver_drink)
         if drinking_status == 'Former Drinker':
             drink_coef = disease_coefs[disease_coefs['Variable'] == 'Ever_drink']
             if not drink_coef.empty and drink_coef.iloc[0]['Coef'] != 'REF':
@@ -669,7 +724,7 @@ def calculate_percentile_rank(user_lp, disease_name, gender, age_group, lp_dist_
     try:
         # Find the matching demographic group
         demographic_data = lp_dist_df[
-            (lp_dist_df['Disease_Name'] == disease_name) & 
+            (lp_dist_df['Disease'] == disease_name) & 
             (lp_dist_df['Gender'] == gender) & 
             (lp_dist_df['Age_Group'] == age_group)
         ]
@@ -792,22 +847,22 @@ def main():
     lp_dist_df = load_lp_distributions()
     
     # Get unique diseases
-    diseases = model_df['Disease_Name'].unique().tolist()
+    diseases = model_df['Disease'].unique().tolist()
     
     # Header
-    st.markdown('<h1 class="main-header">❤️ Heart Rate Risk Percentile Calculator</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-header">Heart Rate Risk Percentile Calculator</h1>', unsafe_allow_html=True)
     st.markdown('<p style="text-align: center; font-size: 1.2rem; color: #7f8c8d;">Find out how your risk compares to people in your demographic group</p>', unsafe_allow_html=True)
     
     # Sidebar for inputs
     with st.sidebar:
-        st.markdown("### 📋 Your Information")
+        st.markdown("### Your Information")
         
         # Personal information
         age = st.slider("Age", 20, 90, 45, help="Your current age")
         gender = st.selectbox("Gender", ["Male", "Female"], help="Biological sex")
         
         # Height and Weight Section with BMI Calculator
-        st.markdown("### 📏 Height & Weight")
+        st.markdown("### Height & Weight")
         
         # Unit selection
         col1, col2 = st.columns(2)
@@ -848,14 +903,14 @@ def main():
             bmi_category, bmi_color = get_bmi_category(calculated_bmi)
             st.markdown(f"""
             <div class="bmi-info">
-                <h4>📊 Calculated BMI</h4>
+                <h4>Calculated BMI</h4>
                 <p style="font-size: 1.2rem; font-weight: bold; color: {bmi_color};">
                     BMI: {calculated_bmi}
                 </p>
                 <p style="color: {bmi_color}; font-weight: bold;">
                     Category: {bmi_category}
                 </p>
-                <small>BMI = weight(kg) ÷ height(m)²</small>
+                <small>Updated BMI categories: Normal <24, Overweight 24-27, Obese ≥27</small>
             </div>
             """, unsafe_allow_html=True)
             
@@ -866,7 +921,7 @@ def main():
             bmi = 24.0  # Default fallback
         
         # Heart rate
-        st.markdown("### 💗 Heart Rate")
+        st.markdown("### Heart Rate")
         current_hr = st.slider(
             "Resting Heart Rate (bpm)", 
             40, 120, 72, 
@@ -874,7 +929,7 @@ def main():
         )
         
         # Lifestyle factors
-        st.markdown("### 🚬 Lifestyle")
+        st.markdown("### Lifestyle")
         smoking_status = st.selectbox(
             "Smoking Status", 
             ["Never Smoker", "Former Smoker", "Current Smoker"]
@@ -885,8 +940,8 @@ def main():
             ["Never Drinker", "Former Drinker", "Current Drinker"]
         )
         
-        # Disease category filter - now including Mortality Risk
-        st.markdown("### 🏥 Risk Categories")
+        # Disease category filter
+        st.markdown("### Risk Categories")
         all_categories = ['Cardiovascular', 'Metabolic', 'Mental Health', 'Other Conditions', 'Mortality Risk']
         selected_categories = st.multiselect(
             "Select categories to display:",
@@ -901,14 +956,14 @@ def main():
     # Display demographic info with BMI
     st.markdown(f"""
     <div class="demographic-info">
-        <h4>👥 Your Profile & Demographic Group</h4>
+        <h4>Your Profile & Demographic Group</h4>
         <div style="display: flex; justify-content: space-between; flex-wrap: wrap;">
             <div>
                 <p><strong>Comparing you to:</strong> {gender}s aged {age_group} years</p>
                 <p><strong>Your Details:</strong> {age} years old, {gender}</p>
             </div>
             <div>
-                <p><strong>Physical:</strong> BMI {bmi}, HR {current_hr} bpm</p>
+                <p><strong>Physical:</strong> BMI {bmi} ({get_bmi_category(bmi)[0]}), HR {current_hr} bpm</p>
                 <p><strong>Lifestyle:</strong> {smoking_status.replace('Never Smoker', 'Non-smoker')}, {drinking_status.replace('Never Drinker', 'Non-drinker')}</p>
             </div>
         </div>
@@ -916,7 +971,7 @@ def main():
     """, unsafe_allow_html=True)
     
     if True:  # Auto-calculate always
-        st.markdown("### 🎯 Your Risk Percentiles")
+        st.markdown("### Your Risk Percentiles")
         
         # Calculate percentiles for filtered diseases
         results = []
@@ -956,7 +1011,7 @@ def main():
             
             # Display Mortality Risk prominently if selected
             if mortality_result:
-                st.markdown("### ⚰️ Mortality Risk Assessment")
+                st.markdown("### Mortality Risk Assessment")
                 mort_result = mortality_result[0]
                 
                 col1, col2 = st.columns([1, 2])
@@ -968,26 +1023,26 @@ def main():
                 with col2:
                     # Mortality risk interpretation
                     if mort_result['percentile'] >= 90:
-                        interpretation = f"⚠️ **Critical: Top {100-mort_result['percentile']}% highest mortality risk**"
+                        interpretation = f"Critical: Top {100-mort_result['percentile']}% highest mortality risk"
                         recommendation = "Immediate medical consultation strongly advised"
                         urgency_color = "#c0392b"
                     elif mort_result['percentile'] >= 75:
-                        interpretation = f"🚨 **High mortality risk** (higher than {mort_result['percentile']}%)"
+                        interpretation = f"High mortality risk (higher than {mort_result['percentile']}%)"
                         recommendation = "Schedule comprehensive health evaluation"
                         urgency_color = "#e67e22"
                     elif mort_result['percentile'] >= 50:
-                        interpretation = f"⚡ **Moderate mortality risk** (top {100-mort_result['percentile']}%)"
+                        interpretation = f"Moderate mortality risk (top {100-mort_result['percentile']}%)"
                         recommendation = "Focus on preventive health measures"
                         urgency_color = "#8e44ad"
                     else:
-                        interpretation = f"✅ **Lower mortality risk** (top {100-mort_result['percentile']}%)"
+                        interpretation = f"Lower mortality risk (top {100-mort_result['percentile']}%)"
                         recommendation = "Continue healthy lifestyle practices"
                         urgency_color = "#27ae60"
                     
                     st.markdown(f"""
                     <div style="background: linear-gradient(135deg, {urgency_color} 0%, {mort_result['color']} 100%); 
                                 padding: 2rem; border-radius: 15px; color: white; margin: 1rem 0;">
-                        <h3>🎯 Mortality Risk: {mort_result['percentile']}th Percentile</h3>
+                        <h3>Mortality Risk: {mort_result['percentile']}th Percentile</h3>
                         <p style="font-size: 1.1rem; margin: 1rem 0;">{interpretation}</p>
                         <hr style="border-color: rgba(255,255,255,0.3);">
                         <p style="font-size: 1rem;"><strong>Recommendation:</strong> {recommendation}</p>
@@ -996,7 +1051,7 @@ def main():
                     """, unsafe_allow_html=True)
             
             if disease_results:
-                st.markdown("### 🏥 Disease-Specific Risk Assessment")
+                st.markdown("### Disease-Specific Risk Assessment")
                 
                 # Sort by percentile (highest risk first)
                 disease_results.sort(key=lambda x: x['percentile'], reverse=True)
@@ -1025,16 +1080,16 @@ def main():
                                 
                                 # Risk interpretation
                                 if result['percentile'] >= 90:
-                                    interpretation = f"⚠️ **Top {100-result['percentile']}% highest risk**"
+                                    interpretation = f"Top {100-result['percentile']}% highest risk"
                                     recommendation = "Consider medical consultation"
                                 elif result['percentile'] >= 75:
-                                    interpretation = f"📈 **Higher than {result['percentile']}% of your demographic**"
+                                    interpretation = f"Higher than {result['percentile']}% of your demographic"
                                     recommendation = "Monitor closely, lifestyle changes"
                                 elif result['percentile'] >= 50:
-                                    interpretation = f"📊 **Average risk** (top {100-result['percentile']}%)"
+                                    interpretation = f"Average risk (top {100-result['percentile']}%)"
                                     recommendation = "Continue healthy habits"
                                 else:
-                                    interpretation = f"✅ **Lower risk** (top {100-result['percentile']}%)"
+                                    interpretation = f"Lower risk (top {100-result['percentile']}%)"
                                     recommendation = "Maintain current lifestyle"
                                 
                                 st.markdown(f"""
@@ -1049,64 +1104,8 @@ def main():
                                 </div>
                                 """, unsafe_allow_html=True)
             
-            # Category-wise summary (including Mortality Risk)
-            st.markdown("### 📊 Risk Summary by Category")
-            
-            # Group results by category
-            category_summary = {}
-            for result in results:  # Include all results (mortality + diseases)
-                cat = result['category']
-                if cat not in category_summary:
-                    category_summary[cat] = {'high': 0, 'moderate': 0, 'average': 0, 'low': 0, 'diseases': []}
-                
-                category_summary[cat]['diseases'].append(result['disease'])
-                
-                if result['percentile'] >= 90:
-                    category_summary[cat]['high'] += 1
-                elif result['percentile'] >= 75:
-                    category_summary[cat]['moderate'] += 1
-                elif result['percentile'] >= 50:
-                    category_summary[cat]['average'] += 1
-                else:
-                    category_summary[cat]['low'] += 1
-            
-            # Display category summary
-            if category_summary:
-                summary_cols = st.columns(len(category_summary))
-                for i, (category, summary) in enumerate(category_summary.items()):
-                    with summary_cols[i]:
-                        total = len(summary['diseases'])
-                        high_pct = (summary['high'] / total) * 100
-                        
-                        # Special styling for Mortality Risk category
-                        if category == 'Mortality Risk':
-                            bg_color = "linear-gradient(135deg, #2c2c54 0%, #40407a 100%)"
-                            icon = "⚰️"
-                        elif high_pct >= 50:
-                            bg_color = "linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)"
-                            icon = "🚨"
-                        elif summary['moderate'] > 0:
-                            bg_color = "linear-gradient(135deg, #ffa726 0%, #ff9800 100%)"
-                            icon = "⚠️"
-                        else:
-                            bg_color = "linear-gradient(135deg, #66bb6a 0%, #4caf50 100%)"
-                            icon = "✅"
-                        
-                        st.markdown(f"""
-                        <div style="background: {bg_color}; padding: 1.5rem; border-radius: 15px; 
-                                    color: white; text-align: center; margin: 0.5rem 0;">
-                            <h4>{icon} {category}</h4>
-                            <p><strong>{total}</strong> assessment{'s' if total > 1 else ''}</p>
-                            <hr style="border-color: rgba(255,255,255,0.3);">
-                            <p>🔴 High Risk: {summary['high']}</p>
-                            <p>🟡 Moderate: {summary['moderate']}</p>
-                            <p>🔵 Average: {summary['average']}</p>
-                            <p>🟢 Lower: {summary['low']}</p>
-                        </div>
-                        """, unsafe_allow_html=True)
-            
             # Detailed risk comparison table
-            st.markdown("### 📋 Detailed Risk Comparison")
+            st.markdown("### Detailed Risk Comparison")
             
             # Create comparison DataFrame
             comparison_df = pd.DataFrame({
@@ -1114,12 +1113,7 @@ def main():
                 'Category': [r['category'] for r in results],
                 'Your Percentile': [f"{r['percentile']}th" for r in results],
                 'Risk Level': [r['risk_category'] for r in results],
-                'Interpretation': [
-                    f"Higher risk than {r['percentile']}% of {gender.lower()}s aged {age_group}" 
-                    if r['percentile'] > 50 
-                    else f"Lower risk than {100-r['percentile']}% of {gender.lower()}s aged {age_group}"
-                    for r in results
-                ],
+                'BMI Category': [get_bmi_model_category(bmi).replace('bmi_', '').title() for _ in results],
                 'Linear Predictor': [f"{r['lp']:.3f}" for r in results]
             })
             
@@ -1134,212 +1128,74 @@ def main():
                 else:
                     return 'background-color: #e8f5e8; color: #2e7d32'
             
-            def style_category(val):
-                colors = {
-                    'Cardiovascular': 'background-color: #ffebee; color: #c62828',
-                    'Metabolic': 'background-color: #f3e5f5; color: #7b1fa2',
-                    'Mental Health': 'background-color: #e8f5e8; color: #388e3c',
-                    'Other Conditions': 'background-color: #e3f2fd; color: #1976d2',
-                    'Mortality Risk': 'background-color: #e8eaf6; color: #3f51b5'
-                }
-                return colors.get(val, '')
-            
-            styled_df = comparison_df.style.applymap(style_risk_level, subset=['Risk Level'])\
-                                           .applymap(style_category, subset=['Category'])
+            styled_df = comparison_df.style.applymap(style_risk_level, subset=['Risk Level'])
             st.dataframe(styled_df, use_container_width=True, hide_index=True)
         
         else:
             st.error("Could not calculate risk percentiles. Please check your inputs.")
     
-    # Recommendations section
-    if 'results' in locals() and results:
-        st.markdown("### 💡 Personalized Recommendations")
-        
-        # Check for mortality risk first
-        mortality_result = [r for r in results if r['disease'] == 'Death']
-        if mortality_result and mortality_result[0]['percentile'] >= 75:
-            st.markdown(f"""
-            <div style="background: linear-gradient(135deg, #2c2c54 0%, #40407a 100%); 
-                        padding: 2rem; border-radius: 15px; color: white; margin: 1rem 0;
-                        border: 3px solid #6c5ce7;">
-                <h4>🚨 Priority Alert: Elevated Mortality Risk</h4>
-                <p>Your mortality risk percentile ({mortality_result[0]['percentile']}th) indicates you're in a higher risk group.</p>
-                <ul>
-                    <li>🏥 <strong>Schedule comprehensive medical evaluation immediately</strong></li>
-                    <li>🩺 Discuss all risk factors with your healthcare provider</li>
-                    <li>📋 Consider preventive screenings and health monitoring</li>
-                    <li>💊 Review all medications and supplements with your doctor</li>
-                    <li>🚨 Address modifiable risk factors urgently</li>
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        high_risk_diseases = [r for r in results if r['percentile'] >= 90 and r['disease'] != 'Death']
-        moderate_risk_diseases = [r for r in results if 75 <= r['percentile'] < 90 and r['disease'] != 'Death']
-        
-        if high_risk_diseases:
-            st.markdown(f"""
-            <div style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); 
-                        padding: 1.5rem; border-radius: 15px; color: white; margin: 1rem 0;">
-                <h4>⚠️ High Priority Actions</h4>
-                <p>You are in the <strong>top 10%</strong> risk group for: 
-                   <strong>{', '.join([d['disease'] for d in high_risk_diseases])}</strong></p>
-                <ul>
-                    <li>🏥 Schedule a medical consultation soon</li>
-                    <li>🔍 Discuss specific screening tests</li>
-                    <li>💪 Implement immediate lifestyle changes</li>
-                    <li>📅 Set up regular monitoring schedule</li>
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        if moderate_risk_diseases:
-            st.markdown(f"""
-            <div style="background: linear-gradient(135deg, #ffa726 0%, #ff9800 100%); 
-                        padding: 1.5rem; border-radius: 15px; color: white; margin: 1rem 0;">
-                <h4>📈 Moderate Risk - Take Action</h4>
-                <p>Higher than average risk for: 
-                   <strong>{', '.join([d['disease'] for d in moderate_risk_diseases])}</strong></p>
-                <ul>
-                    <li>🏃 Increase physical activity</li>
-                    <li>🥗 Optimize diet and weight management</li>
-                    <li>😴 Ensure adequate sleep (7-9 hours)</li>
-                    <li>🧘 Manage stress effectively</li>
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        # Heart rate specific advice
-        if current_hr >= 85:
-            st.markdown(f"""
-            <div style="background: linear-gradient(135deg, #a8e6cf 0%, #88d8c0 100%); 
-                        padding: 1.5rem; border-radius: 15px; color: #2c3e50; margin: 1rem 0;">
-                <h4>💗 Heart Rate Optimization</h4>
-                <p>Your resting HR ({current_hr} bpm) could be improved:</p>
-                <ul>
-                    <li>🏃‍♂️ Cardio exercise 150+ min/week</li>
-                    <li>🧘‍♀️ Stress management techniques</li>
-                    <li>☕ Limit caffeine intake</li>
-                    <li>💤 Prioritize quality sleep</li>
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        # BMI-specific advice
-        bmi_category, _ = get_bmi_category(bmi)
-        if bmi_category in ["Overweight", "Obese"]:
-            st.markdown(f"""
-            <div style="background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%); 
-                        padding: 1.5rem; border-radius: 15px; color: white; margin: 1rem 0;">
-                <h4>⚖️ Weight Management Recommendations</h4>
-                <p>Your BMI ({bmi}) is in the <strong>{bmi_category.lower()}</strong> range:</p>
-                <ul>
-                    <li>🎯 Target gradual weight loss (1-2 lbs/week)</li>
-                    <li>🍽️ Focus on portion control and balanced nutrition</li>
-                    <li>💧 Increase water intake</li>
-                    <li>🚶‍♀️ Add more daily physical activity</li>
-                    <li>📱 Consider using a food diary or app</li>
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
-    
     # BMI Information Section
-    with st.expander("📊 Understanding BMI Categories"):
+    with st.expander("Understanding BMI Categories (Updated)"):
         st.markdown("""
-        ### BMI (Body Mass Index) Categories
+        ### BMI Categories (Updated Model)
         
-        **BMI Categories (WHO Standards):**
+        **New BMI Categories used in this model:**
         - **Underweight:** BMI < 18.5
-        - **Normal weight:** BMI 18.5-24.9
-        - **Overweight:** BMI 25.0-29.9
-        - **Obese:** BMI ≥ 30.0
+        - **Normal weight:** BMI 18.5-23.9
+        - **Overweight:** BMI 24.0-26.9  
+        - **Obese:** BMI ≥ 27.0
         
-        **BMI Calculation:**
-        BMI = Weight (kg) ÷ Height (m)²
+        **Changes from WHO standards:**
+        - Normal range reduced from <25 to <24
+        - Overweight range is 24-27 instead of 25-30
+        - Obesity threshold lowered from 30 to 27
         
-        **Important Notes:**
-        - BMI is a screening tool, not a diagnostic measure
-        - It doesn't account for muscle mass, bone density, or body composition
-        - Athletes with high muscle mass may have high BMI but low body fat
-        - Age, gender, and ethnicity can affect BMI interpretation
-        - Consult healthcare providers for personalized assessment
+        **Note:** These updated thresholds may be more appropriate for certain populations and reflect the model's training data.
         """)
     
     # Methodology explanation
-    with st.expander("📚 How This Calculator Works"):
+    with st.expander("How This Calculator Works"):
         st.markdown("""
-        ### Percentile-Based Risk Assessment
+        ### Updated Model Features
         
-        **What This Shows:**
-        - Your risk percentile within people of your **same age group and gender**
-        - For example, "85th percentile" means you have higher risk than 85% of people in your demographic
+        **Key Changes:**
+        - **Categorical BMI:** BMI is now categorized (underweight/normal/overweight/obese) instead of continuous
+        - **Updated Diseases:** Includes new conditions like Dementia
+        - **Refined Categories:** Adjusted BMI thresholds (Normal <24, Overweight 24-27, Obese ≥27)
         
-        **Risk Categories:**
-        - **90th+ percentile:** Top 10% highest risk - medical consultation recommended
-        - **75th-89th percentile:** Higher than average risk - lifestyle changes advised  
-        - **50th-74th percentile:** Average risk - maintain healthy habits
-        - **Below 50th percentile:** Lower than average risk - continue current lifestyle
-        
-        **Special Note on Mortality Risk:**
-        - **Death/Mortality Risk** is assessed using the same percentile system
-        - This represents your overall mortality risk compared to your demographic peers
-        - Higher percentiles indicate elevated risk of mortality from all causes
-        - This is **not a prediction** but a population-based risk comparison
-        
-        **Calculation Method:**
-        1. Calculate your **Linear Predictor (LP)** using Cox model coefficients
-        2. Compare your LP to the distribution of LPs in your demographic group
-        3. Determine your percentile rank within that group
-        
-        **Factors Included:**
-        - Age (continuous variable)
+        **Variables in Model:**
+        - Age (continuous)
         - Gender (Male/Female)
-        - **BMI (calculated from height/weight)**
-        - Heart rate category (<60, 60-69, 70-79, 80-89, ≥90 bpm)
+        - **BMI categories** (underweight/normal/overweight/obese)
+        - Heart rate categories (<60, 60-69, 70-79, 80-89, ≥90 bpm)  
         - Smoking status (Never/Former/Current)
         - Drinking status (Never/Former/Current)
         
-        **Data Source:**
-        - Cox regression coefficients from Taiwan Biobank study
-        - LP distributions calculated from population data (demographic-specific)
-        - Includes 18 disease conditions plus mortality risk assessment
+        **Included Conditions:**
+        - **Mortality Risk (Death)**
+        - Type 2 Diabetes
+        - Atrial Fibrillation  
+        - Anxiety
+        - Chronic Kidney Disease
+        - GERD
+        - Heart Failure
+        - Anemia
+        - Asthma
+        - Atherosclerosis
+        - Cardiac Arrhythmia
+        - **Dementia (New)**
+        - Depression
+        - Hypertension
+        - Ischemic Heart Disease
+        - Ischemic Stroke
+        - Migraine
         
         **Important Notes:**
-        - Results are population-based associations, not individual predictions
-        - Multiple factors beyond those in the model may affect individual risk
-        - This tool is for educational purposes and doesn't replace medical advice
-        - Genetic factors and family history are not included in this model
-        - **Mortality risk assessment should be discussed with healthcare providers**
-        
-        **Advantages of Percentile Approach:**
-        - More intuitive than hazard ratios ("top 10%" vs "1.5x higher risk")
-        - Age and gender-specific comparisons (fair demographic matching)
-        - Clear action thresholds (90th percentile = high priority)
-        - Better motivates preventive actions
-        - Includes comprehensive mortality risk assessment
+        - BMI categories may differ from standard WHO classifications
+        - Model trained on specific population data (Taiwan Biobank)
+        - Percentiles show your rank within same age/gender demographic
+        - This tool is for educational purposes only
         """)
-    
-    # Footer
-    st.markdown("---")
-    st.markdown("""
-    <div style="text-align: center; color: #7f8c8d; font-size: 0.9rem;">
-        <strong>⚠️ Medical Disclaimer:</strong> This percentile risk calculator is for educational purposes only. 
-        Risk percentiles are based on population data and Cox regression models. Individual risk may vary 
-        significantly due to genetic factors, family history, and other variables not captured in the model. 
-        High percentile rankings (especially 90th+) suggest discussing with a healthcare provider, but this 
-        tool cannot diagnose conditions or replace professional medical evaluation. 
-        <strong>Mortality risk assessments should be discussed with qualified healthcare professionals.</strong>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown(f"""
-    <div style="text-align: center; color: #95a5a6; font-size: 0.8rem; margin-top: 1rem;">
-        <em>Risk percentiles calculated using Cox regression model and demographic-specific LP distributions.<br>
-        BMI automatically calculated from height ({height} {height_unit}) and weight ({weight} {weight_unit}).<br>
-        Percentile rankings show your position relative to people of your same age group and gender.<br>
-        Assessment includes {len(diseases)} conditions: 18 diseases + mortality risk.</em>
-    </div>
-    """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
