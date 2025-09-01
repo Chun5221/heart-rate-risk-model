@@ -1133,7 +1133,7 @@ def main():
     diseases = list(available_diseases)
     
     # Header
-    st.markdown('<h1 class="main-header">Heart Rate Risk Percentile Calculator</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-header">❤️ Heart Rate Risk Percentile Calculator</h1>', unsafe_allow_html=True)
     st.markdown('<p style="text-align: center; font-size: 1.2rem; color: #7f8c8d;">Compare your risk to people in your demographic group using actual population data</p>', unsafe_allow_html=True)
     
     # Sidebar for inputs
