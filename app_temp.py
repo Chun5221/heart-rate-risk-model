@@ -86,27 +86,30 @@ st.markdown("""
     }
     
     .profile-info {
-        background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
+        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
         padding: 2rem;
         border-radius: 20px;
-        color: white;
+        color: #1565c0;
         text-align: center;
         margin: 2rem 0;
-        box-shadow: 0 15px 45px rgba(116,185,255,0.3);
+        box-shadow: 0 15px 45px rgba(33,150,243,0.15);
+        border: 1px solid #90caf9;
     }
     
     .profile-info h3 {
         font-size: 2rem;
         margin-bottom: 1rem;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        text-shadow: 1px 1px 2px rgba(21,101,192,0.3);
+        color: #0d47a1;
     }
     
     .profile-detail {
-        background: rgba(255,255,255,0.2);
+        background: rgba(255,255,255,0.7);
         padding: 1rem;
         border-radius: 10px;
         margin: 0.5rem 0;
         backdrop-filter: blur(5px);
+        border: 1px solid rgba(33,150,243,0.2);
     }
     
     .stats-dashboard {
@@ -119,30 +122,50 @@ st.markdown("""
     }
     
     .stats-card {
-        background: white;
         padding: 1.5rem;
         border-radius: 15px;
         text-align: center;
         margin: 0.5rem 0;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        border-left: 5px solid #007bff;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
         transition: transform 0.3s ease;
+        color: white;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
     }
     
     .stats-card:hover {
-        transform: translateY(-2px);
+        transform: translateY(-3px);
+        box-shadow: 0 12px 35px rgba(0,0,0,0.2);
+    }
+    
+    .stats-card.high-risk {
+        background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+    }
+    
+    .stats-card.moderate-risk {
+        background: linear-gradient(135deg, #ffa726 0%, #ff9800 100%);
+    }
+    
+    .stats-card.average-risk {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .stats-card.low-risk {
+        background: linear-gradient(135deg, #66bb6a 0%, #4caf50 100%);
     }
     
     .stats-number {
         font-size: 2.5rem;
         font-weight: bold;
         margin: 0;
+        color: white;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
     }
     
     .stats-label {
         font-size: 1rem;
-        color: #6c757d;
         margin: 0.5rem 0 0 0;
+        color: rgba(255,255,255,0.9);
+        font-weight: 500;
     }
 
     .bmi-info {
@@ -887,9 +910,7 @@ def get_age_group_for_percentile(age):
         return '>=60'
 
 def calculate_linear_predictor(disease_name, age, gender, hr, bmi, smoking_status, drinking_status, model_df):
-    """Calculate linear predictor (LP) using Cox regression coefficients
-    ......
-    """
+    """Calculate linear predictor (LP) using Cox regression coefficients"""
     try:
         disease_coefs = model_df[model_df['Disease'] == disease_name].copy()
         
@@ -995,61 +1016,35 @@ def calculate_percentile_rank(user_lp, disease_name, gender, age_group, percenti
 
 def get_risk_category_and_color(percentile, disease_name=''):
     """Get risk category and color based on percentile"""
-    if disease_name == 'Death':
-        if percentile >= 90:
-            return "Critical Mortality Risk", "mortality-card", "#2c2c54"
-        elif percentile >= 75:
-            return "High Mortality Risk", "mortality-card", "#40407a"
-        elif percentile >= 50:
-            return "Moderate Mortality Risk", "mortality-card", "#6c5ce7"
-        else:
-            return "Lower Mortality Risk", "mortality-card", "#a29bfe"
+    # Use consistent risk categories for all diseases including Death
+    if percentile >= 90:
+        return "High Risk", "high-risk-card", "#e74c3c"
+    elif percentile >= 75:
+        return "Moderate-High Risk", "moderate-risk-card", "#f39c12"
+    elif percentile >= 50:
+        return "Average Risk", "percentile-card", "#3498db"
     else:
-        if percentile >= 90:
-            return "High Risk", "high-risk-card", "#e74c3c"
-        elif percentile >= 75:
-            return "Moderate-High Risk", "moderate-risk-card", "#f39c12"
-        elif percentile >= 50:
-            return "Average Risk", "percentile-card", "#3498db"
-        else:
-            return "Lower Risk", "low-risk-card", "#27ae60"
+        return "Lower Risk", "low-risk-card", "#27ae60"
 
 def create_percentile_gauge(percentile, disease_name):
     """Create a gauge chart showing percentile position"""
-    if disease_name == 'Death':
-        if percentile >= 90:
-            color = "#2c2c54"
-        elif percentile >= 75:
-            color = "#40407a"
-        elif percentile >= 50:
-            color = "#6c5ce7"
-        else:
-            color = "#a29bfe"
-        
-        title_text = f"Mortality Risk<br>Percentile"
-        steps = [
-            {'range': [0, 50], 'color': "#ddd6fe"},
-            {'range': [50, 75], 'color': "#c4b5fd"},
-            {'range': [75, 90], 'color': "#a78bfa"},
-            {'range': [90, 100], 'color': "#8b5cf6"}
-        ]
+    # Use consistent colors for all diseases including Death
+    if percentile >= 90:
+        color = "#e74c3c"
+    elif percentile >= 75:
+        color = "#f39c12"
+    elif percentile >= 50:
+        color = "#3498db"
     else:
-        if percentile >= 90:
-            color = "#e74c3c"
-        elif percentile >= 75:
-            color = "#f39c12"
-        elif percentile >= 50:
-            color = "#3498db"
-        else:
-            color = "#27ae60"
-        
-        title_text = f"{disease_name}<br>Risk Percentile"
-        steps = [
-            {'range': [0, 50], 'color': "#d5f4e6"},
-            {'range': [50, 75], 'color': "#ffeaa7"},
-            {'range': [75, 90], 'color': "#fdcb6e"},
-            {'range': [90, 100], 'color': "#e17055"}
-        ]
+        color = "#27ae60"
+    
+    title_text = f"{disease_name}<br>Risk Percentile"
+    steps = [
+        {'range': [0, 50], 'color': "#d5f4e6"},
+        {'range': [50, 75], 'color': "#ffeaa7"},
+        {'range': [75, 90], 'color': "#fdcb6e"},
+        {'range': [90, 100], 'color': "#e17055"}
+    ]
     
     fig = go.Figure(go.Indicator(
         mode = "gauge+number+delta",
@@ -1074,30 +1069,16 @@ def create_percentile_gauge(percentile, disease_name):
 
 def create_risk_summary_chart(risk_counts):
     """Create a summary chart showing risk distribution"""
-    # Define colors for each risk category
+    # Define colors for each risk category (simplified since Death now uses same categories)
     colors = {
         'High Risk': '#e74c3c',
         'Moderate-High Risk': '#f39c12', 
         'Average Risk': '#3498db',
-        'Lower Risk': '#27ae60',
-        'Critical Mortality Risk': '#2c2c54',
-        'High Mortality Risk': '#40407a',
-        'Moderate Mortality Risk': '#6c5ce7',
-        'Lower Mortality Risk': '#a29bfe'
+        'Lower Risk': '#27ae60'
     }
     
-    # Combine mortality risk categories with regular risk categories for display
-    display_counts = {}
-    for category, count in risk_counts.items():
-        if 'Mortality' in category:
-            if 'Critical' in category or 'High' in category:
-                display_counts['High Risk'] = display_counts.get('High Risk', 0) + count
-            elif 'Moderate' in category:
-                display_counts['Average Risk'] = display_counts.get('Average Risk', 0) + count
-            else:
-                display_counts['Lower Risk'] = display_counts.get('Lower Risk', 0) + count
-        else:
-            display_counts[category] = display_counts.get(category, 0) + count
+    # Simplified risk counting since all diseases use the same categories
+    display_counts = risk_counts.copy()
     
     categories = list(display_counts.keys())
     values = list(display_counts.values())
@@ -1292,40 +1273,40 @@ def main():
         # Create statistics cards
         col1, col2, col3, col4 = st.columns(4)
         
-        # Count diseases in each risk level (combine mortality categories with regular ones)
-        high_risk = sum([count for category, count in risk_counts.items() if 'High' in category or 'Critical' in category])
-        moderate_risk = sum([count for category, count in risk_counts.items() if 'Moderate' in category and 'High' not in category])
+        # Count diseases in each risk level (now simplified since Death uses same categories)
+        high_risk = sum([count for category, count in risk_counts.items() if 'High' in category and 'Moderate' not in category])
+        moderate_risk = sum([count for category, count in risk_counts.items() if 'Moderate' in category])
         average_risk = sum([count for category, count in risk_counts.items() if 'Average' in category])
         low_risk = sum([count for category, count in risk_counts.items() if 'Lower' in category or 'Low' in category])
         
         with col1:
             st.markdown(f"""
-            <div class="stats-card" style="border-left-color: #e74c3c;">
-                <p class="stats-number" style="color: #e74c3c;">{high_risk}</p>
+            <div class="stats-card high-risk">
+                <p class="stats-number">{high_risk}</p>
                 <p class="stats-label">High Risk</p>
             </div>
             """, unsafe_allow_html=True)
         
         with col2:
             st.markdown(f"""
-            <div class="stats-card" style="border-left-color: #f39c12;">
-                <p class="stats-number" style="color: #f39c12;">{moderate_risk}</p>
+            <div class="stats-card moderate-risk">
+                <p class="stats-number">{moderate_risk}</p>
                 <p class="stats-label">Moderate-High Risk</p>
             </div>
             """, unsafe_allow_html=True)
         
         with col3:
             st.markdown(f"""
-            <div class="stats-card" style="border-left-color: #3498db;">
-                <p class="stats-number" style="color: #3498db;">{average_risk}</p>
+            <div class="stats-card average-risk">
+                <p class="stats-number">{average_risk}</p>
                 <p class="stats-label">Average Risk</p>
             </div>
             """, unsafe_allow_html=True)
         
         with col4:
             st.markdown(f"""
-            <div class="stats-card" style="border-left-color: #27ae60;">
-                <p class="stats-number" style="color: #27ae60;">{low_risk}</p>
+            <div class="stats-card low-risk">
+                <p class="stats-number">{low_risk}</p>
                 <p class="stats-label">Lower Risk</p>
             </div>
             """, unsafe_allow_html=True)
