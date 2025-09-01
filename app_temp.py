@@ -184,7 +184,7 @@ st.markdown("""
     }
     
     .category-header {
-        background: linear-gradient(90deg, #C8C6D7, #A39FAF);
+        background: linear-gradient(90deg, #c0bddb, #9c97ad);
         color: #52457a;
         padding: 1rem;
         border-radius: 10px;
@@ -1411,3 +1411,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
