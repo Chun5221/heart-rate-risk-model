@@ -137,15 +137,15 @@ DEATH,HR_cat80-89,0.552592
 DEATH,HR_cat>=90,0.760978
 DEATH,AGE,0.079182
 DEATH,MALE,REF
-DEATH,FERMALE,-0.687091
+DEATH,FEMALE,-0.687091
 DEATH,bmi_normal,REF
 DEATH,bmi_underweight,0.47405
 DEATH,bmi_overweight,0.157231
 DEATH,bmi_obese,0.327973
-DEATH,Nerver_smoke,REF
+DEATH,Never_smoke,REF
 DEATH,Ever_smoke,-0.006856
 DEATH,Now_smoke,0.589674
-DEATH,Nerver_drink,REF
+DEATH,Never_drink,REF
 DEATH,Ever_drink,0.492511
 DEATH,Now_drink,0.247009
 t2d,HR_cat60-69,REF
@@ -155,15 +155,15 @@ t2d,HR_cat80-89,0.463608
 t2d,HR_cat>=90,0.595579
 t2d,AGE,0.065918
 t2d,MALE,REF
-t2d,FERMALE,0.066054
+t2d,FEMALE,0.066054
 t2d,bmi_normal,REF
 t2d,bmi_underweight,-0.903821
 t2d,bmi_overweight,0.438925
 t2d,bmi_obese,1.043188
-t2d,Nerver_smoke,REF
+t2d,Never_smoke,REF
 t2d,Ever_smoke,0.203295
 t2d,Now_smoke,0.266898
-t2d,Nerver_drink,REF
+t2d,Never_drink,REF
 t2d,Ever_drink,0.047062
 t2d,Now_drink,0.160096
 af,HR_cat60-69,REF
@@ -173,15 +173,15 @@ af,HR_cat80-89,0.35315
 af,HR_cat>=90,0.58248
 af,AGE,0.09624
 af,MALE,REF
-af,FERMALE,-0.77577
+af,FEMALE,-0.77577
 af,bmi_normal,REF
 af,bmi_underweight,-1.1248
 af,bmi_overweight,0.13015
 af,bmi_obese,0.38955
-af,Nerver_smoke,REF
+af,Never_smoke,REF
 af,Ever_smoke,0.09146
 af,Now_smoke,-0.30515
-af,Nerver_drink,REF
+af,Never_drink,REF
 af,Ever_drink,-0.03565
 af,Now_drink,0.17075
 anxiety,HR_cat60-69,REF
@@ -191,15 +191,15 @@ anxiety,HR_cat80-89,0.08684
 anxiety,HR_cat>=90,0.05308
 anxiety,AGE,0.02841
 anxiety,MALE,REF
-anxiety,FERMALE,0.52751
+anxiety,FEMALE,0.52751
 anxiety,bmi_normal,REF
 anxiety,bmi_underweight,0.11908
 anxiety,bmi_overweight,-0.08715
 anxiety,bmi_obese,-0.20691
-anxiety,Nerver_smoke,REF
+anxiety,Never_smoke,REF
 anxiety,Ever_smoke,0.12562
 anxiety,Now_smoke,0.26357
-anxiety,Nerver_drink,REF
+anxiety,Never_drink,REF
 anxiety,Ever_drink,0.3835
 anxiety,Now_drink,0.18204
 ckd,HR_cat60-69,REF
@@ -209,15 +209,15 @@ ckd,HR_cat80-89,0.428913
 ckd,HR_cat>=90,0.996948
 ckd,AGE,0.078225
 ckd,MALE,REF
-ckd,FERMALE,-0.448045
+ckd,FEMALE,-0.448045
 ckd,bmi_normal,REF
 ckd,bmi_underweight,-0.236165
 ckd,bmi_overweight,0.413529
 ckd,bmi_obese,0.869457
-ckd,Nerver_smoke,REF
+ckd,Never_smoke,REF
 ckd,Ever_smoke,0.061577
 ckd,Now_smoke,0.090903
-ckd,Nerver_drink,REF
+ckd,Never_drink,REF
 ckd,Ever_drink,0.240892
 ckd,Now_drink,-0.11281
 gerd,HR_cat60-69,REF
@@ -227,15 +227,15 @@ gerd,HR_cat80-89,0.13919
 gerd,HR_cat>=90,0.143378
 gerd,AGE,0.023791
 gerd,MALE,REF
-gerd,FERMALE,0.143428
+gerd,FEMALE,0.143428
 gerd,bmi_normal,REF
 gerd,bmi_underweight,0.057324
 gerd,bmi_overweight,0.003157
 gerd,bmi_obese,-0.024195
-gerd,Nerver_smoke,REF
+gerd,Never_smoke,REF
 gerd,Ever_smoke,0.136964
 gerd,Now_smoke,0.028098
-gerd,Nerver_drink,REF
+gerd,Never_drink,REF
 gerd,Ever_drink,-0.015931
 gerd,Now_drink,-0.077732
 heart_failure,HR_cat60-69,REF
@@ -245,15 +245,15 @@ heart_failure,HR_cat80-89,0.49327
 heart_failure,HR_cat>=90,0.40777
 heart_failure,AGE,0.07843
 heart_failure,MALE,REF
-heart_failure,FERMALE,-0.25105
+heart_failure,FEMALE,-0.25105
 heart_failure,bmi_normal,REF
 heart_failure,bmi_underweight,-0.79253
 heart_failure,bmi_overweight,0.48228
 heart_failure,bmi_obese,1.02165
-heart_failure,Nerver_smoke,REF
+heart_failure,Never_smoke,REF
 heart_failure,Ever_smoke,0.21295
 heart_failure,Now_smoke,0.28765
-heart_failure,Nerver_drink,REF
+heart_failure,Never_drink,REF
 heart_failure,Ever_drink,0.07138
 heart_failure,Now_drink,-0.22844
 anemias,HR_cat60-69,REF
@@ -263,15 +263,15 @@ anemias,HR_cat80-89,0.295665
 anemias,HR_cat>=90,0.173965
 anemias,AGE,-0.012707
 anemias,MALE,REF
-anemias,FERMALE,1.233641
+anemias,FEMALE,1.233641
 anemias,bmi_normal,REF
 anemias,bmi_underweight,-0.102467
 anemias,bmi_overweight,-0.041169
 anemias,bmi_obese,-0.064932
-anemias,Nerver_smoke,REF
+anemias,Never_smoke,REF
 anemias,Ever_smoke,0.281375
 anemias,Now_smoke,-0.192209
-anemias,Nerver_drink,REF
+anemias,Never_drink,REF
 anemias,Ever_drink,0.227121
 anemias,Now_drink,-0.14395
 asthma,HR_cat60-69,REF
@@ -281,15 +281,15 @@ asthma,HR_cat80-89,0.25838
 asthma,HR_cat>=90,0.26451
 asthma,AGE,0.03481
 asthma,MALE,REF
-asthma,FERMALE,0.33305
+asthma,FEMALE,0.33305
 asthma,bmi_normal,REF
 asthma,bmi_underweight,-0.02926
 asthma,bmi_overweight,0.24735
 asthma,bmi_obese,0.53764
-asthma,Nerver_smoke,REF
+asthma,Never_smoke,REF
 asthma,Ever_smoke,0.25093
 asthma,Now_smoke,0.04096
-asthma,Nerver_drink,REF
+asthma,Never_drink,REF
 asthma,Ever_drink,0.12783
 asthma,Now_drink,-0.25044
 atherosclerosis,HR_cat60-69,REF
@@ -299,15 +299,15 @@ atherosclerosis,HR_cat80-89,0.078521
 atherosclerosis,HR_cat>=90,-0.28857
 atherosclerosis,AGE,0.082831
 atherosclerosis,MALE,REF
-atherosclerosis,FERMALE,-0.659888
+atherosclerosis,FEMALE,-0.659888
 atherosclerosis,bmi_normal,REF
 atherosclerosis,bmi_underweight,-0.405545
 atherosclerosis,bmi_overweight,0.241369
 atherosclerosis,bmi_obese,0.632751
-atherosclerosis,Nerver_smoke,REF
+atherosclerosis,Never_smoke,REF
 atherosclerosis,Ever_smoke,0.154472
 atherosclerosis,Now_smoke,0.195769
-atherosclerosis,Nerver_drink,REF
+atherosclerosis,Never_drink,REF
 atherosclerosis,Ever_drink,0.237052
 atherosclerosis,Now_drink,-0.044435
 cardiac_arrhythmia,HR_cat60-69,REF
@@ -317,15 +317,15 @@ cardiac_arrhythmia,HR_cat80-89,0.293397
 cardiac_arrhythmia,HR_cat>=90,0.502355
 cardiac_arrhythmia,AGE,0.054073
 cardiac_arrhythmia,MALE,REF
-cardiac_arrhythmia,FERMALE,0.234635
+cardiac_arrhythmia,FEMALE,0.234635
 cardiac_arrhythmia,bmi_normal,REF
 cardiac_arrhythmia,bmi_underweight,-0.024617
 cardiac_arrhythmia,bmi_overweight,0.197351
 cardiac_arrhythmia,bmi_obese,0.220454
-cardiac_arrhythmia,Nerver_smoke,REF
+cardiac_arrhythmia,Never_smoke,REF
 cardiac_arrhythmia,Ever_smoke,0.072327
 cardiac_arrhythmia,Now_smoke,0.122191
-cardiac_arrhythmia,Nerver_drink,REF
+cardiac_arrhythmia,Never_drink,REF
 cardiac_arrhythmia,Ever_drink,0.024056
 cardiac_arrhythmia,Now_drink,-0.072795
 dementia,HR_cat60-69,REF
@@ -335,15 +335,15 @@ dementia,HR_cat80-89,0.143758
 dementia,HR_cat>=90,0.420416
 dementia,AGE,0.23123
 dementia,MALE,REF
-dementia,FERMALE,0.220448
+dementia,FEMALE,0.220448
 dementia,bmi_normal,REF
 dementia,bmi_underweight,0.274853
 dementia,bmi_overweight,0.228676
 dementia,bmi_obese,0.246473
-dementia,Nerver_smoke,REF
+dementia,Never_smoke,REF
 dementia,Ever_smoke,-0.093189
 dementia,Now_smoke,0.032187
-dementia,Nerver_drink,REF
+dementia,Never_drink,REF
 dementia,Ever_drink,0.191469
 dementia,Now_drink,-0.578951
 depression,HR_cat60-69,REF
@@ -353,15 +353,15 @@ depression,HR_cat80-89,0.34531
 depression,HR_cat>=90,0.38877
 depression,AGE,0.02033
 depression,MALE,REF
-depression,FERMALE,0.55122
+depression,FEMALE,0.55122
 depression,bmi_normal,REF
 depression,bmi_underweight,0.34393
 depression,bmi_overweight,-0.1258
 depression,bmi_obese,0.02531
-depression,Nerver_smoke,REF
+depression,Never_smoke,REF
 depression,Ever_smoke,0.36363
 depression,Now_smoke,0.63215
-depression,Nerver_drink,REF
+depression,Never_drink,REF
 depression,Ever_drink,0.42167
 depression,Now_drink,0.06226
 hypertension,HR_cat60-69,REF
@@ -371,15 +371,15 @@ hypertension,HR_cat80-89,0.473373
 hypertension,HR_cat>=90,0.817759
 hypertension,AGE,0.060626
 hypertension,MALE,REF
-hypertension,FERMALE,-0.158935
+hypertension,FEMALE,-0.158935
 hypertension,bmi_normal,REF
 hypertension,bmi_underweight,-0.631423
 hypertension,bmi_overweight,0.559873
 hypertension,bmi_obese,1.16172
-hypertension,Nerver_smoke,REF
+hypertension,Never_smoke,REF
 hypertension,Ever_smoke,0.097167
 hypertension,Now_smoke,0.081723
-hypertension,Nerver_drink,REF
+hypertension,Never_drink,REF
 hypertension,Ever_drink,0.222135
 hypertension,Now_drink,0.339044
 ischemic_heart_disease,HR_cat60-69,REF
@@ -389,15 +389,15 @@ ischemic_heart_disease,HR_cat80-89,0.027601
 ischemic_heart_disease,HR_cat>=90,-0.25622
 ischemic_heart_disease,AGE,0.086786
 ischemic_heart_disease,MALE,REF
-ischemic_heart_disease,FERMALE,-0.345756
+ischemic_heart_disease,FEMALE,-0.345756
 ischemic_heart_disease,bmi_normal,REF
 ischemic_heart_disease,bmi_underweight,-0.592953
 ischemic_heart_disease,bmi_overweight,0.321841
 ischemic_heart_disease,bmi_obese,0.617107
-ischemic_heart_disease,Nerver_smoke,REF
+ischemic_heart_disease,Never_smoke,REF
 ischemic_heart_disease,Ever_smoke,0.133943
 ischemic_heart_disease,Now_smoke,0.279845
-ischemic_heart_disease,Nerver_drink,REF
+ischemic_heart_disease,Never_drink,REF
 ischemic_heart_disease,Ever_drink,0.377737
 ischemic_heart_disease,Now_drink,-0.069477
 ischemic_stroke,HR_cat60-69,REF
@@ -407,15 +407,15 @@ ischemic_stroke,HR_cat80-89,0.437323
 ischemic_stroke,HR_cat>=90,0.837057
 ischemic_stroke,AGE,0.09066
 ischemic_stroke,MALE,REF
-ischemic_stroke,FERMALE,-0.260478
+ischemic_stroke,FEMALE,-0.260478
 ischemic_stroke,bmi_normal,REF
 ischemic_stroke,bmi_underweight,-0.068895
 ischemic_stroke,bmi_overweight,0.440064
 ischemic_stroke,bmi_obese,0.53031
-ischemic_stroke,Nerver_smoke,REF
+ischemic_stroke,Never_smoke,REF
 ischemic_stroke,Ever_smoke,0.209785
 ischemic_stroke,Now_smoke,0.657639
-ischemic_stroke,Nerver_drink,REF
+ischemic_stroke,Never_drink,REF
 ischemic_stroke,Ever_drink,0.203407
 ischemic_stroke,Now_drink,0.136869
 migraine,HR_cat60-69,REF
@@ -425,15 +425,15 @@ migraine,HR_cat80-89,0.3703828
 migraine,HR_cat>=90,0.492667
 migraine,AGE,0.0005605
 migraine,MALE,REF
-migraine,FERMALE,1.2063488
+migraine,FEMALE,1.2063488
 migraine,bmi_normal,REF
 migraine,bmi_underweight,-0.3796271
 migraine,bmi_overweight,0.1365617
 migraine,bmi_obese,0.1635858
-migraine,Nerver_smoke,REF
+migraine,Never_smoke,REF
 migraine,Ever_smoke,0.30192
 migraine,Now_smoke,0.2017923
-migraine,Nerver_drink,REF
+migraine,Never_drink,REF
 migraine,Ever_drink,0.3245442
 migraine,Now_drink,-0.3845493"""
     
@@ -705,11 +705,27 @@ def load_percentile_data():
     'migraine': 'Migraine',
     }
     
+    # 讀完 df 後馬上清理欄名與字串欄位
+    df.columns = df.columns.str.strip()
+    
+    # 重要：去除 Disease / AGE / SEX 可能的前後空白
+    for col in ['Disease', 'AGE']:
+        df[col] = df[col].astype(str).str.strip()
+    
+    # SEX 也可能讀到字串型態＋空白，先轉成數字
+    df['SEX'] = pd.to_numeric(df['SEX'], errors='coerce')
+    
     # Clean up disease names
     df['Disease'] = df['Disease'].map(disease_name_map).fillna(df['Disease'])
     
     # Map gender codes (1=Male, 2=Female)
     df['Gender'] = df['SEX'].map({1: 'Male', 2: 'Female'})
+    
+    # 確保百分位欄位都是數值
+    pct_cols = ['1%', '3%', '5%', '10%', '15%', '20%', '30%', '40%', '50%', '60%', '70%', '80%', '85%', '90%', '95%', '98%', '100%']
+    for c in pct_cols:
+        if c in df.columns:
+            df[c] = pd.to_numeric(df[c], errors='coerce')
     
     return df
 
@@ -807,7 +823,7 @@ def calculate_linear_predictor(disease_name, age, gender, hr, bmi, smoking_statu
         
         # Gender
         if gender == 'Female':
-            gender_coef = disease_coefs[disease_coefs['Variable'] == 'FERMALE']
+            gender_coef = disease_coefs[disease_coefs['Variable'] == 'FEMALE']
             if not gender_coef.empty and gender_coef.iloc[0]['Coef'] != 'REF':
                 lp += float(gender_coef.iloc[0]['Coef'])
         
