@@ -184,8 +184,8 @@ st.markdown("""
     }
     
     .category-header {
-        background: linear-gradient(90deg, #c0bddb, #9c97ad);
-        color: #52457a;
+        background: linear-gradient(90deg, #e3f2fd, #bbdefb);
+        color: #1565c0;
         padding: 1rem;
         border-radius: 10px;
         margin: 2rem 0 1rem 0;
@@ -193,7 +193,9 @@ st.markdown("""
         font-size: 1.5rem;
         font-weight: bold;
         text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        border: 1px solid #90caf9;
     }
+    
 </style>
 """, unsafe_allow_html=True)
 
@@ -1411,4 +1413,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
