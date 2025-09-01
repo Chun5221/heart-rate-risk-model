@@ -85,27 +85,64 @@ st.markdown("""
         border: 2px solid #6c5ce7;
     }
     
-    .demographic-info {
-        background: #f8f9fa;
+    .profile-info {
+        background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
+        padding: 2rem;
+        border-radius: 20px;
+        color: white;
+        text-align: center;
+        margin: 2rem 0;
+        box-shadow: 0 15px 45px rgba(116,185,255,0.3);
+    }
+    
+    .profile-info h3 {
+        font-size: 2rem;
+        margin-bottom: 1rem;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+    
+    .profile-detail {
+        background: rgba(255,255,255,0.2);
         padding: 1rem;
         border-radius: 10px;
-        border-left: 4px solid #3498db;
-        margin: 1rem 0;
+        margin: 0.5rem 0;
+        backdrop-filter: blur(5px);
+    }
+    
+    .stats-dashboard {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        padding: 2rem;
+        border-radius: 20px;
+        margin: 2rem 0;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        border: 1px solid #dee2e6;
+    }
+    
+    .stats-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 15px;
         text-align: center;
-        max-width: 1100px;
-        margin: 1rem auto;
-        padding: 1.25rem 1.25rem;
+        margin: 0.5rem 0;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        border-left: 5px solid #007bff;
+        transition: transform 0.3s ease;
     }
     
-    .demographic-info h4 {
-        font-size: 1.6rem;
-        margin: 0.25rem 0 0.75rem 0;
-        font-weight: 800;
+    .stats-card:hover {
+        transform: translateY(-2px);
     }
     
-    .demographic-info p {
-        font-size: 1.05rem;
-        margin: 0.25rem 0;
+    .stats-number {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin: 0;
+    }
+    
+    .stats-label {
+        font-size: 1rem;
+        color: #6c757d;
+        margin: 0.5rem 0 0 0;
     }
 
     .bmi-info {
@@ -122,8 +159,57 @@ st.markdown("""
         font-weight: bold;
         text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
     }
+    
+    .category-header {
+        background: linear-gradient(90deg, #6c5ce7, #a29bfe);
+        color: white;
+        padding: 1rem;
+        border-radius: 10px;
+        margin: 2rem 0 1rem 0;
+        text-align: center;
+        font-size: 1.5rem;
+        font-weight: bold;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+    }
 </style>
 """, unsafe_allow_html=True)
+
+# Disease categorization
+DISEASE_CATEGORIES = {
+    "Cardiovascular & Circulatory": [
+        "Heart Failure",
+        "Atrial Fibrillation", 
+        "Cardiac Arrhythmia",
+        "Ischemic Heart Disease",
+        "Ischemic Stroke",
+        "Atherosclerosis",
+        "Hypertension"
+    ],
+    "Metabolic & Endocrine": [
+        "Type 2 Diabetes"
+    ],
+    "Mental Health & Neurological": [
+        "Anxiety",
+        "Depression", 
+        "Dementia",
+        "Migraine"
+    ],
+    "Other Medical Conditions": [
+        "Chronic Kidney Disease",
+        "Gastroesophageal Reflux Disease",
+        "Anemias",
+        "Asthma"
+    ],
+    "Mortality Risk": [
+        "Death"
+    ]
+}
+
+# Flatten categories for reverse lookup
+DISEASE_TO_CATEGORY = {}
+for category, diseases in DISEASE_CATEGORIES.items():
+    for disease in diseases:
+        DISEASE_TO_CATEGORY[disease] = category
 
 # Load and parse the Cox regression model coefficients
 @st.cache_data
@@ -801,7 +887,9 @@ def get_age_group_for_percentile(age):
         return '>=60'
 
 def calculate_linear_predictor(disease_name, age, gender, hr, bmi, smoking_status, drinking_status, model_df):
-    """Calculate linear predictor (LP) using Cox regression coefficients"""
+    """Calculate linear predictor (LP) using Cox regression coefficients
+    ......
+    """
     try:
         disease_coefs = model_df[model_df['Disease'] == disease_name].copy()
         
@@ -984,6 +1072,57 @@ def create_percentile_gauge(percentile, disease_name):
     fig.update_layout(height=300, margin=dict(l=20, r=20, t=60, b=20))
     return fig
 
+def create_risk_summary_chart(risk_counts):
+    """Create a summary chart showing risk distribution"""
+    # Define colors for each risk category
+    colors = {
+        'High Risk': '#e74c3c',
+        'Moderate-High Risk': '#f39c12', 
+        'Average Risk': '#3498db',
+        'Lower Risk': '#27ae60',
+        'Critical Mortality Risk': '#2c2c54',
+        'High Mortality Risk': '#40407a',
+        'Moderate Mortality Risk': '#6c5ce7',
+        'Lower Mortality Risk': '#a29bfe'
+    }
+    
+    # Combine mortality risk categories with regular risk categories for display
+    display_counts = {}
+    for category, count in risk_counts.items():
+        if 'Mortality' in category:
+            if 'Critical' in category or 'High' in category:
+                display_counts['High Risk'] = display_counts.get('High Risk', 0) + count
+            elif 'Moderate' in category:
+                display_counts['Average Risk'] = display_counts.get('Average Risk', 0) + count
+            else:
+                display_counts['Lower Risk'] = display_counts.get('Lower Risk', 0) + count
+        else:
+            display_counts[category] = display_counts.get(category, 0) + count
+    
+    categories = list(display_counts.keys())
+    values = list(display_counts.values())
+    category_colors = [colors.get(cat, '#95a5a6') for cat in categories]
+    
+    fig = go.Figure(data=[
+        go.Bar(
+            x=categories,
+            y=values,
+            marker_color=category_colors,
+            text=values,
+            textposition='auto',
+        )
+    ])
+    
+    fig.update_layout(
+        title="Risk Distribution Summary",
+        xaxis_title="Risk Level",
+        yaxis_title="Number of Conditions",
+        height=400,
+        margin=dict(l=20, r=20, t=60, b=20)
+    )
+    
+    return fig
+
 def main():
     # Load data
     model_df = load_model_coefficients()
@@ -1059,34 +1198,58 @@ def main():
         st.markdown("### Lifestyle")
         smoking_status = st.selectbox("Smoking Status", ["Never Smoker", "Former Smoker", "Current Smoker"])
         drinking_status = st.selectbox("Drinking Status", ["Never Drinker", "Former Drinker", "Current Drinker"])
+        
+        # Disease category filter
+        st.markdown("### Disease Categories")
+        st.markdown("Select which types of diseases to analyze:")
+        
+        category_filters = {}
+        for category in DISEASE_CATEGORIES.keys():
+            category_filters[category] = st.checkbox(
+                category, 
+                value=True,
+                help=f"Include {category.lower()} in analysis"
+            )
     
     # Determine user's demographic group
     age_group = get_age_group_for_percentile(age)
     
-    # Display demographic info
+    # Enhanced profile section
     st.markdown(f"""
-    <div class="demographic-info">
-        <h4>Your Profile & Comparison Group</h4>
-        <div style="display: flex; justify-content: space-between; flex-wrap: wrap;">
-            <div>
-                <p><strong>Comparing you to:</strong> {gender}s aged {age_group} years</p>
-                <p><strong>Your Details:</strong> {age} years old, {gender}</p>
+    <div class="profile-info">
+        <h3>👤 Your Health Profile</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
+            <div class="profile-detail">
+                <h4 style="margin: 0 0 0.5rem 0;">📊 Comparison Group</h4>
+                <p style="margin: 0; font-size: 1.1rem;"><strong>You are being compared to:</strong></p>
+                <p style="margin: 0.25rem 0; font-size: 1.3rem; font-weight: bold;">{gender}s aged {age_group} years</p>
             </div>
-            <div>
-                <p><strong>Physical:</strong> BMI {bmi} ({get_bmi_category(bmi)[0]}), HR {current_hr} bpm</p>
-                <p><strong>Lifestyle:</strong> {smoking_status.replace('Never Smoker', 'Non-smoker')}, {drinking_status.replace('Never Drinker', 'Non-drinker')}</p>
+            <div class="profile-detail">
+                <h4 style="margin: 0 0 0.5rem 0;">🏥 Your Details</h4>
+                <p style="margin: 0;"><strong>Age:</strong> {age} years old</p>
+                <p style="margin: 0;"><strong>Physical:</strong> BMI {bmi} ({get_bmi_category(bmi)[0]})</p>
+                <p style="margin: 0;"><strong>Heart Rate:</strong> {current_hr} bpm</p>
+                <p style="margin: 0;"><strong>Lifestyle:</strong> {smoking_status.replace('Never Smoker', 'Non-smoker')}, {drinking_status.replace('Never Drinker', 'Non-drinker')}</p>
             </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
     
-    st.markdown("### Your Risk Percentiles")
-    st.markdown("**Example calculation:** A 43-year-old male with BMI 25, HR 72, non-smoker, non-drinker would have a death risk LP of ~3.81, placing them around the 68th percentile for males aged 40-44.")
+    # Filter diseases based on selected categories
+    filtered_diseases = []
+    for disease in diseases:
+        disease_category = DISEASE_TO_CATEGORY.get(disease)
+        if disease_category and category_filters.get(disease_category, False):
+            filtered_diseases.append(disease)
     
-    # Calculate percentiles for available diseases
+    if not filtered_diseases:
+        st.warning("Please select at least one disease category to analyze.")
+        return
+    
+    # Calculate percentiles for filtered diseases
     results = []
     
-    for disease in diseases:
+    for disease in filtered_diseases:
         user_lp = calculate_linear_predictor(
             disease, age, gender, current_hr, bmi, 
             smoking_status, drinking_status, model_df
@@ -1106,52 +1269,129 @@ def main():
                     'risk_category': risk_category,
                     'card_class': card_class,
                     'color': color,
-                    'lp': user_lp
+                    'lp': user_lp,
+                    'category': DISEASE_TO_CATEGORY.get(disease, 'Other')
                 })
     
     if results:
-        # Sort by percentile (highest risk first)
+        # Create risk summary statistics
+        risk_counts = {}
+        for result in results:
+            risk_category = result['risk_category']
+            risk_counts[risk_category] = risk_counts.get(risk_category, 0) + 1
+        
+        # Display aggregated statistics dashboard
+        st.markdown(f"""
+        <div class="stats-dashboard">
+            <h3 style="text-align: center; margin-bottom: 1.5rem; color: #2c3e50;">📈 Risk Assessment Summary</h3>
+            <p style="text-align: center; color: #7f8c8d; margin-bottom: 2rem;">
+                Analysis of {len(results)} conditions compared to {gender.lower()}s aged {age_group}
+            </p>
+        """, unsafe_allow_html=True)
+        
+        # Create statistics cards
+        col1, col2, col3, col4 = st.columns(4)
+        
+        # Count diseases in each risk level (combine mortality categories with regular ones)
+        high_risk = sum([count for category, count in risk_counts.items() if 'High' in category or 'Critical' in category])
+        moderate_risk = sum([count for category, count in risk_counts.items() if 'Moderate' in category and 'High' not in category])
+        average_risk = sum([count for category, count in risk_counts.items() if 'Average' in category])
+        low_risk = sum([count for category, count in risk_counts.items() if 'Lower' in category or 'Low' in category])
+        
+        with col1:
+            st.markdown(f"""
+            <div class="stats-card" style="border-left-color: #e74c3c;">
+                <p class="stats-number" style="color: #e74c3c;">{high_risk}</p>
+                <p class="stats-label">High Risk</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown(f"""
+            <div class="stats-card" style="border-left-color: #f39c12;">
+                <p class="stats-number" style="color: #f39c12;">{moderate_risk}</p>
+                <p class="stats-label">Moderate-High Risk</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            st.markdown(f"""
+            <div class="stats-card" style="border-left-color: #3498db;">
+                <p class="stats-number" style="color: #3498db;">{average_risk}</p>
+                <p class="stats-label">Average Risk</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col4:
+            st.markdown(f"""
+            <div class="stats-card" style="border-left-color: #27ae60;">
+                <p class="stats-number" style="color: #27ae60;">{low_risk}</p>
+                <p class="stats-label">Lower Risk</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Create and display risk distribution chart
+        risk_chart = create_risk_summary_chart(risk_counts)
+        st.plotly_chart(risk_chart, use_container_width=True)
+        
+        # Sort results by percentile (highest risk first)
         results.sort(key=lambda x: x['percentile'], reverse=True)
         
-        # Display results in grid format
-        cols = st.columns(min(len(results), 4))
-        for i, result in enumerate(results):
-            with cols[i % len(cols)]:
-                # Create gauge chart
-                fig = create_percentile_gauge(result['percentile'], result['disease'])
-                st.plotly_chart(fig, use_container_width=True)
+        # Group results by category and display
+        st.markdown("### Your Risk Assessment Results")
+        
+        # Get unique categories from results
+        categories_with_results = list(set([result['category'] for result in results]))
+        categories_with_results.sort()
+        
+        for category in categories_with_results:
+            category_results = [r for r in results if r['category'] == category]
+            
+            if category_results:
+                st.markdown(f'<div class="category-header">{category}</div>', unsafe_allow_html=True)
                 
-                # Risk interpretation
-                if result['percentile'] >= 90:
-                    interpretation = f"Higher risk than {result['percentile']}% of your demographic"
-                    recommendation = "Consider medical consultation"
-                elif result['percentile'] >= 75:
-                    interpretation = f"Higher risk than {result['percentile']}% of your demographic"
-                    recommendation = "Monitor closely, lifestyle changes"
-                elif result['percentile'] >= 50:
-                    interpretation = f"Average risk (higher than {result['percentile']}%)"
-                    recommendation = "Continue healthy habits"
-                else:
-                    interpretation = f"Lower risk (higher than {result['percentile']}%)"
-                    recommendation = "Maintain current lifestyle"
-                
-                st.markdown(f"""
-                <div class="{result['card_class']}">
-                    <h4>{result['disease']}</h4>
-                    <div class="percentile-number">{result['percentile']}th</div>
-                    <p>Percentile</p>
-                    <hr style="border-color: rgba(255,255,255,0.3);">
-                    <p style="font-size: 0.9rem;">{interpretation}</p>
-                    <p style="font-size: 0.8rem;"><em>{recommendation}</em></p>
-                    <p style="font-size: 0.7rem;">LP: {result['lp']:.3f}</p>
-                </div>
-                """, unsafe_allow_html=True)
+                # Display results in grid format
+                cols = st.columns(min(len(category_results), 4))
+                for i, result in enumerate(category_results):
+                    with cols[i % len(cols)]:
+                        # Create gauge chart
+                        fig = create_percentile_gauge(result['percentile'], result['disease'])
+                        st.plotly_chart(fig, use_container_width=True)
+                        
+                        # Risk interpretation
+                        if result['percentile'] >= 90:
+                            interpretation = f"Higher risk than {result['percentile']}% of your demographic"
+                            recommendation = "Consider medical consultation"
+                        elif result['percentile'] >= 75:
+                            interpretation = f"Higher risk than {result['percentile']}% of your demographic"
+                            recommendation = "Monitor closely, lifestyle changes"
+                        elif result['percentile'] >= 50:
+                            interpretation = f"Average risk (higher than {result['percentile']}%)"
+                            recommendation = "Continue healthy habits"
+                        else:
+                            interpretation = f"Lower risk (higher than {result['percentile']}%)"
+                            recommendation = "Maintain current lifestyle"
+                        
+                        st.markdown(f"""
+                        <div class="{result['card_class']}">
+                            <h4>{result['disease']}</h4>
+                            <div class="percentile-number">{result['percentile']}th</div>
+                            <p>Percentile</p>
+                            <hr style="border-color: rgba(255,255,255,0.3);">
+                            <p style="font-size: 0.9rem;">{interpretation}</p>
+                            <p style="font-size: 0.8rem;"><em>{recommendation}</em></p>
+                            <p style="font-size: 0.7rem;">LP: {result['lp']:.3f}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
         
         # Detailed comparison table
-        st.markdown("### Detailed Results")
+        st.markdown("### Detailed Results Table")
         
         comparison_df = pd.DataFrame({
             'Disease': [r['disease'] for r in results],
+            'Category': [r['category'] for r in results],
             'Your Percentile': [f"{r['percentile']}th" for r in results],
             'Linear Predictor': [f"{r['lp']:.3f}" for r in results],
             'Risk Level': [r['risk_category'] for r in results],
@@ -1160,14 +1400,33 @@ def main():
         
         st.dataframe(comparison_df, use_container_width=True, hide_index=True)
         
+        # Summary insights
+        st.markdown("### 💡 Key Insights")
+        
+        total_conditions = len(results)
+        high_risk_conditions = [r for r in results if r['percentile'] >= 90]
+        moderate_risk_conditions = [r for r in results if 75 <= r['percentile'] < 90]
+        
+        if high_risk_conditions:
+            st.error(f"⚠️ **High Priority:** You have {len(high_risk_conditions)} condition(s) in the high-risk category (≥90th percentile): {', '.join([r['disease'] for r in high_risk_conditions])}")
+        
+        if moderate_risk_conditions:
+            st.warning(f"⚡ **Monitor Closely:** You have {len(moderate_risk_conditions)} condition(s) in the moderate-high risk category (75-89th percentile): {', '.join([r['disease'] for r in moderate_risk_conditions])}")
+        
+        if not high_risk_conditions and not moderate_risk_conditions:
+            st.success(f"✅ **Good News:** None of your {total_conditions} assessed conditions fall into high-risk categories!")
+        
         st.markdown("""
         **Note:** This calculator uses actual population data from Taiwan Biobank to determine where your calculated risk falls 
         within your demographic group (same age range and gender). The linear predictor (LP) is calculated using Cox regression 
         coefficients, and your percentile shows what percentage of people in your demographic group have lower risk than you.
+        
+        **Disclaimer:** This tool is for educational purposes only and should not replace professional medical advice. 
+        Please consult with healthcare professionals for personalized medical guidance.
         """)
     
     else:
-        st.error("Could not calculate risk percentiles. Please check that data is available for your demographic group.")
+        st.error("Could not calculate risk percentiles for the selected categories. Please check that data is available for your demographic group.")
 
 if __name__ == "__main__":
     main()
