@@ -35,7 +35,7 @@ st.markdown("""
     }
     
     .percentile-card {
-        background: linear-gradient(135deg, #74b9ff 0%, #667eea 100%);
+        background: linear-gradient(135deg, #6b9aff 0%, #667eea 100%);
         padding: 2rem;
         border-radius: 20px;
         color: white;
@@ -146,7 +146,7 @@ st.markdown("""
     }
     
     .stats-card.average-risk {
-        background: linear-gradient(135deg, #74b9ff 0%, #667eea 100%);
+        background: linear-gradient(135deg, #6b9aff 0%, #667eea 100%);
     }
     
     .stats-card.low-risk {
