@@ -184,8 +184,8 @@ st.markdown("""
     }
     
     .category-header {
-        background: linear-gradient(90deg, #6c5ce7, #a29bfe);
-        color: white;
+        background: linear-gradient(90deg, #C8C6D7, #A39FAF);
+        color: #52457a;
         padding: 1rem;
         border-radius: 10px;
         margin: 2rem 0 1rem 0;
