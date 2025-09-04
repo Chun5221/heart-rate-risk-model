@@ -5,13 +5,6 @@ Created on Thu Sep  4 08:56:08 2025
 @author: chun5
 """
 
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Sep  1 10:09:19 2025
-
-@author: chun5
-"""
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -1447,4 +1440,5 @@ def main():
         st.error("無法計算所選分類的風險百分位數。請檢查您的人口統計組是否有可用數據。")
 
 if __name__ == "__main__":
+
     main()
