@@ -1139,7 +1139,7 @@ def main():
     diseases = list(available_diseases)
     
     # Header
-    st.markdown('<h1 class="main-header">❤️ </h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-header">❤️ 個人化健康風險評估平台 </h1>', unsafe_allow_html=True)
     st.markdown('<p style="text-align: center; font-size: 1.2rem; color: #7f8c8d;">使用實際人口數據將您的風險與同年齡層性別相同的人群進行比較</p>', unsafe_allow_html=True)
     
     # Sidebar for inputs
@@ -1442,4 +1442,5 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
