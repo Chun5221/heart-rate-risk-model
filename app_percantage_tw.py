@@ -1,0 +1,1450 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Sep  4 08:56:08 2025
+
+@author: chun5
+"""
+
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Sep  1 10:09:19 2025
+
+@author: chun5
+"""
+
+import streamlit as st
+import pandas as pd
+import numpy as np
+import plotly.graph_objects as go
+import plotly.express as px
+from plotly.subplots import make_subplots
+import math
+
+# Page configuration
+st.set_page_config(
+    page_title="❤️ 心率風險評估平台",
+    page_icon="❤️",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Custom CSS for better styling
+st.markdown("""
+<style>
+    .main-header {
+        font-size: 3rem;
+        background: linear-gradient(90deg, #ff6b6b, #ee5a24);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-align: center;
+        padding: 1rem 0;
+        font-weight: bold;
+    }
+    
+    .percentile-card {
+        background: linear-gradient(135deg, #6b9aff 0%, #667eea 100%);
+        padding: 2rem;
+        border-radius: 20px;
+        color: white;
+        text-align: center;
+        margin: 1rem 0;
+        box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+    }
+    
+    .high-risk-card {
+        background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+        padding: 2rem;
+        border-radius: 20px;
+        color: white;
+        text-align: center;
+        margin: 1rem 0;
+        box-shadow: 0 12px 40px rgba(255,107,107,0.3);
+    }
+    
+    .moderate-risk-card {
+        background: linear-gradient(135deg, #ffa726 0%, #ff9800 100%);
+        padding: 2rem;
+        border-radius: 20px;
+        color: white;
+        text-align: center;
+        margin: 1rem 0;
+        box-shadow: 0 12px 40px rgba(255,167,38,0.3);
+    }
+    
+    .low-risk-card {
+        background: linear-gradient(135deg, #66bb6a 0%, #4caf50 100%);
+        padding: 2rem;
+        border-radius: 20px;
+        color: white;
+        text-align: center;
+        margin: 1rem 0;
+        box-shadow: 0 12px 40px rgba(76,175,80,0.3);
+    }
+    
+    .mortality-card {
+        background: linear-gradient(135deg, #2c2c54 0%, #40407a 100%);
+        padding: 2rem;
+        border-radius: 20px;
+        color: white;
+        text-align: center;
+        margin: 1rem 0;
+        box-shadow: 0 12px 40px rgba(44,44,84,0.3);
+        border: 2px solid #6c5ce7;
+    }
+    
+    .profile-info {
+        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+        padding: 2rem;
+        border-radius: 20px;
+        color: #1565c0;
+        text-align: center;
+        margin: 2rem 0;
+        box-shadow: 0 15px 45px rgba(33,150,243,0.15);
+        border: 1px solid #90caf9;
+    }
+    
+    .profile-info h3 {
+        font-size: 2rem;
+        margin-bottom: 1rem;
+        text-shadow: 1px 1px 2px rgba(21,101,192,0.3);
+        color: #0d47a1;
+    }
+    
+    .profile-detail {
+        background: rgba(255,255,255,0.7);
+        padding: 1rem;
+        border-radius: 10px;
+        margin: 0.5rem 0;
+        backdrop-filter: blur(5px);
+        border: 1px solid rgba(33,150,243,0.2);
+    }
+    
+    .stats-dashboard {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        padding: 2rem;
+        border-radius: 20px;
+        margin: 2rem 0;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        border: 1px solid #dee2e6;
+    }
+    
+    .stats-card {
+        padding: 1.5rem;
+        border-radius: 15px;
+        text-align: center;
+        margin: 0.5rem 0;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        transition: transform 0.3s ease;
+        color: white;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 12px 35px rgba(0,0,0,0.2);
+    }
+    
+    .stats-card.high-risk {
+        background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+    }
+    
+    .stats-card.moderate-risk {
+        background: linear-gradient(135deg, #ffa726 0%, #ff9800 100%);
+    }
+    
+    .stats-card.average-risk {
+        background: linear-gradient(135deg, #6b9aff 0%, #667eea 100%);
+    }
+    
+    .stats-card.low-risk {
+        background: linear-gradient(135deg, #66bb6a 0%, #4caf50 100%);
+    }
+    
+    .stats-number {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin: 0;
+        color: white;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+    
+    .stats-label {
+        font-size: 1rem;
+        margin: 0.5rem 0 0 0;
+        color: rgba(255,255,255,0.9);
+        font-weight: 500;
+    }
+
+    .bmi-info {
+        background: #e8f5e8;
+        padding: 1rem;
+        border-radius: 10px;
+        border-left: 4px solid #27ae60;
+        margin: 0.5rem 0;
+        font-size: 0.9rem;
+    }
+    
+    .percentile-number {
+        font-size: 3rem;
+        font-weight: bold;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+    
+    .category-header {
+        background: linear-gradient(90deg, #e3f2fd, #bbdefb);
+        color: #1565c0;
+        padding: 1rem;
+        border-radius: 10px;
+        margin: 2rem 0 1rem 0;
+        text-align: center;
+        font-size: 1.5rem;
+        font-weight: bold;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        border: 1px solid #90caf9;
+    }
+    
+</style>
+""", unsafe_allow_html=True)
+
+# Disease categorization
+DISEASE_CATEGORIES = {
+    "心血管及循環系統": [
+        "Heart Failure",
+        "Atrial Fibrillation", 
+        "Cardiac Arrhythmia",
+        "Ischemic Heart Disease",
+        "Ischemic Stroke",
+        "Atherosclerosis",
+        "Hypertension"
+    ],
+    "代謝及內分泌": [
+        "Type 2 Diabetes"
+    ],
+    "精神健康及神經系統": [
+        "Anxiety",
+        "Depression", 
+        "Dementia",
+        "Migraine"
+    ],
+    "其他疾病": [
+        "Chronic Kidney Disease",
+        "Gastroesophageal Reflux Disease",
+        "Anemias",
+        "Asthma"
+    ],
+    "死亡風險": [
+        "Death"
+    ]
+}
+
+# Chinese disease names mapping
+DISEASE_CHINESE_NAMES = {
+    "Heart Failure": "心臟衰竭",
+    "Atrial Fibrillation": "心房顫動",
+    "Cardiac Arrhythmia": "心律不整",
+    "Ischemic Heart Disease": "缺血性心臟病",
+    "Ischemic Stroke": "缺血性中風",
+    "Atherosclerosis": "動脈粥狀硬化",
+    "Hypertension": "高血壓",
+    "Type 2 Diabetes": "第二型糖尿病",
+    "Anxiety": "焦慮症",
+    "Depression": "憂鬱症",
+    "Dementia": "失智症",
+    "Migraine": "偏頭痛",
+    "Chronic Kidney Disease": "慢性腎臟病",
+    "Gastroesophageal Reflux Disease": "胃食道逆流",
+    "Anemias": "貧血",
+    "Asthma": "氣喘",
+    "Death": "死亡"
+}
+
+# Flatten categories for reverse lookup
+DISEASE_TO_CATEGORY = {}
+for category, diseases in DISEASE_CATEGORIES.items():
+    for disease in diseases:
+        DISEASE_TO_CATEGORY[disease] = category
+
+# Load and parse the Cox regression model coefficients
+@st.cache_data
+def load_model_coefficients():
+    """Load the Cox regression model coefficients"""
+    data_content = """Disease,Variable,Coef
+DEATH,HR_cat60-69,REF
+DEATH,HR_cat<60,0.03559
+DEATH,HR_cat70-79,0.245138
+DEATH,HR_cat80-89,0.552592
+DEATH,HR_cat>=90,0.760978
+DEATH,AGE,0.079182
+DEATH,MALE,REF
+DEATH,FEMALE,-0.687091
+DEATH,bmi_normal,REF
+DEATH,bmi_underweight,0.47405
+DEATH,bmi_overweight,0.157231
+DEATH,bmi_obese,0.327973
+DEATH,Never_smoke,REF
+DEATH,Ever_smoke,-0.006856
+DEATH,Now_smoke,0.589674
+DEATH,Never_drink,REF
+DEATH,Ever_drink,0.492511
+DEATH,Now_drink,0.247009
+t2d,HR_cat60-69,REF
+t2d,HR_cat<60,-0.149824
+t2d,HR_cat70-79,0.120603
+t2d,HR_cat80-89,0.463608
+t2d,HR_cat>=90,0.595579
+t2d,AGE,0.065918
+t2d,MALE,REF
+t2d,FEMALE,0.066054
+t2d,bmi_normal,REF
+t2d,bmi_underweight,-0.903821
+t2d,bmi_overweight,0.438925
+t2d,bmi_obese,1.043188
+t2d,Never_smoke,REF
+t2d,Ever_smoke,0.203295
+t2d,Now_smoke,0.266898
+t2d,Never_drink,REF
+t2d,Ever_drink,0.047062
+t2d,Now_drink,0.160096
+af,HR_cat60-69,REF
+af,HR_cat<60,0.19999
+af,HR_cat70-79,0.02885
+af,HR_cat80-89,0.35315
+af,HR_cat>=90,0.58248
+af,AGE,0.09624
+af,MALE,REF
+af,FEMALE,-0.77577
+af,bmi_normal,REF
+af,bmi_underweight,-1.1248
+af,bmi_overweight,0.13015
+af,bmi_obese,0.38955
+af,Never_smoke,REF
+af,Ever_smoke,0.09146
+af,Now_smoke,-0.30515
+af,Never_drink,REF
+af,Ever_drink,-0.03565
+af,Now_drink,0.17075
+anxiety,HR_cat60-69,REF
+anxiety,HR_cat<60,-0.02914
+anxiety,HR_cat70-79,0.06873
+anxiety,HR_cat80-89,0.08684
+anxiety,HR_cat>=90,0.05308
+anxiety,AGE,0.02841
+anxiety,MALE,REF
+anxiety,FEMALE,0.52751
+anxiety,bmi_normal,REF
+anxiety,bmi_underweight,0.11908
+anxiety,bmi_overweight,-0.08715
+anxiety,bmi_obese,-0.20691
+anxiety,Never_smoke,REF
+anxiety,Ever_smoke,0.12562
+anxiety,Now_smoke,0.26357
+anxiety,Never_drink,REF
+anxiety,Ever_drink,0.3835
+anxiety,Now_drink,0.18204
+ckd,HR_cat60-69,REF
+ckd,HR_cat<60,0.009221
+ckd,HR_cat70-79,0.197843
+ckd,HR_cat80-89,0.428913
+ckd,HR_cat>=90,0.996948
+ckd,AGE,0.078225
+ckd,MALE,REF
+ckd,FEMALE,-0.448045
+ckd,bmi_normal,REF
+ckd,bmi_underweight,-0.236165
+ckd,bmi_overweight,0.413529
+ckd,bmi_obese,0.869457
+ckd,Never_smoke,REF
+ckd,Ever_smoke,0.061577
+ckd,Now_smoke,0.090903
+ckd,Never_drink,REF
+ckd,Ever_drink,0.240892
+ckd,Now_drink,-0.11281
+gerd,HR_cat60-69,REF
+gerd,HR_cat<60,0.044928
+gerd,HR_cat70-79,0.097214
+gerd,HR_cat80-89,0.13919
+gerd,HR_cat>=90,0.143378
+gerd,AGE,0.023791
+gerd,MALE,REF
+gerd,FEMALE,0.143428
+gerd,bmi_normal,REF
+gerd,bmi_underweight,0.057324
+gerd,bmi_overweight,0.003157
+gerd,bmi_obese,-0.024195
+gerd,Never_smoke,REF
+gerd,Ever_smoke,0.136964
+gerd,Now_smoke,0.028098
+gerd,Never_drink,REF
+gerd,Ever_drink,-0.015931
+gerd,Now_drink,-0.077732
+heart_failure,HR_cat60-69,REF
+heart_failure,HR_cat<60,0.23987
+heart_failure,HR_cat70-79,0.12069
+heart_failure,HR_cat80-89,0.49327
+heart_failure,HR_cat>=90,0.40777
+heart_failure,AGE,0.07843
+heart_failure,MALE,REF
+heart_failure,FEMALE,-0.25105
+heart_failure,bmi_normal,REF
+heart_failure,bmi_underweight,-0.79253
+heart_failure,bmi_overweight,0.48228
+heart_failure,bmi_obese,1.02165
+heart_failure,Never_smoke,REF
+heart_failure,Ever_smoke,0.21295
+heart_failure,Now_smoke,0.28765
+heart_failure,Never_drink,REF
+heart_failure,Ever_drink,0.07138
+heart_failure,Now_drink,-0.22844
+anemias,HR_cat60-69,REF
+anemias,HR_cat<60,-0.133022
+anemias,HR_cat70-79,0.106695
+anemias,HR_cat80-89,0.295665
+anemias,HR_cat>=90,0.173965
+anemias,AGE,-0.012707
+anemias,MALE,REF
+anemias,FEMALE,1.233641
+anemias,bmi_normal,REF
+anemias,bmi_underweight,-0.102467
+anemias,bmi_overweight,-0.041169
+anemias,bmi_obese,-0.064932
+anemias,Never_smoke,REF
+anemias,Ever_smoke,0.281375
+anemias,Now_smoke,-0.192209
+anemias,Never_drink,REF
+anemias,Ever_drink,0.227121
+anemias,Now_drink,-0.14395
+asthma,HR_cat60-69,REF
+asthma,HR_cat<60,-0.05073
+asthma,HR_cat70-79,-0.02929
+asthma,HR_cat80-89,0.25838
+asthma,HR_cat>=90,0.26451
+asthma,AGE,0.03481
+asthma,MALE,REF
+asthma,FEMALE,0.33305
+asthma,bmi_normal,REF
+asthma,bmi_underweight,-0.02926
+asthma,bmi_overweight,0.24735
+asthma,bmi_obese,0.53764
+asthma,Never_smoke,REF
+asthma,Ever_smoke,0.25093
+asthma,Now_smoke,0.04096
+asthma,Never_drink,REF
+asthma,Ever_drink,0.12783
+asthma,Now_drink,-0.25044
+atherosclerosis,HR_cat60-69,REF
+atherosclerosis,HR_cat<60,0.213643
+atherosclerosis,HR_cat70-79,-0.075494
+atherosclerosis,HR_cat80-89,0.078521
+atherosclerosis,HR_cat>=90,-0.28857
+atherosclerosis,AGE,0.082831
+atherosclerosis,MALE,REF
+atherosclerosis,FEMALE,-0.659888
+atherosclerosis,bmi_normal,REF
+atherosclerosis,bmi_underweight,-0.405545
+atherosclerosis,bmi_overweight,0.241369
+atherosclerosis,bmi_obese,0.632751
+atherosclerosis,Never_smoke,REF
+atherosclerosis,Ever_smoke,0.154472
+atherosclerosis,Now_smoke,0.195769
+atherosclerosis,Never_drink,REF
+atherosclerosis,Ever_drink,0.237052
+atherosclerosis,Now_drink,-0.044435
+cardiac_arrhythmia,HR_cat60-69,REF
+cardiac_arrhythmia,HR_cat<60,0.236325
+cardiac_arrhythmia,HR_cat70-79,0.072188
+cardiac_arrhythmia,HR_cat80-89,0.293397
+cardiac_arrhythmia,HR_cat>=90,0.502355
+cardiac_arrhythmia,AGE,0.054073
+cardiac_arrhythmia,MALE,REF
+cardiac_arrhythmia,FEMALE,0.234635
+cardiac_arrhythmia,bmi_normal,REF
+cardiac_arrhythmia,bmi_underweight,-0.024617
+cardiac_arrhythmia,bmi_overweight,0.197351
+cardiac_arrhythmia,bmi_obese,0.220454
+cardiac_arrhythmia,Never_smoke,REF
+cardiac_arrhythmia,Ever_smoke,0.072327
+cardiac_arrhythmia,Now_smoke,0.122191
+cardiac_arrhythmia,Never_drink,REF
+cardiac_arrhythmia,Ever_drink,0.024056
+cardiac_arrhythmia,Now_drink,-0.072795
+dementia,HR_cat60-69,REF
+dementia,HR_cat<60,0.424231
+dementia,HR_cat70-79,0.150302
+dementia,HR_cat80-89,0.143758
+dementia,HR_cat>=90,0.420416
+dementia,AGE,0.23123
+dementia,MALE,REF
+dementia,FEMALE,0.220448
+dementia,bmi_normal,REF
+dementia,bmi_underweight,0.274853
+dementia,bmi_overweight,0.228676
+dementia,bmi_obese,0.246473
+dementia,Never_smoke,REF
+dementia,Ever_smoke,-0.093189
+dementia,Now_smoke,0.032187
+dementia,Never_drink,REF
+dementia,Ever_drink,0.191469
+dementia,Now_drink,-0.578951
+depression,HR_cat60-69,REF
+depression,HR_cat<60,0.04088
+depression,HR_cat70-79,0.078
+depression,HR_cat80-89,0.34531
+depression,HR_cat>=90,0.38877
+depression,AGE,0.02033
+depression,MALE,REF
+depression,FEMALE,0.55122
+depression,bmi_normal,REF
+depression,bmi_underweight,0.34393
+depression,bmi_overweight,-0.1258
+depression,bmi_obese,0.02531
+depression,Never_smoke,REF
+depression,Ever_smoke,0.36363
+depression,Now_smoke,0.63215
+depression,Never_drink,REF
+depression,Ever_drink,0.42167
+depression,Now_drink,0.06226
+hypertension,HR_cat60-69,REF
+hypertension,HR_cat<60,-0.074567
+hypertension,HR_cat70-79,0.236392
+hypertension,HR_cat80-89,0.473373
+hypertension,HR_cat>=90,0.817759
+hypertension,AGE,0.060626
+hypertension,MALE,REF
+hypertension,FEMALE,-0.158935
+hypertension,bmi_normal,REF
+hypertension,bmi_underweight,-0.631423
+hypertension,bmi_overweight,0.559873
+hypertension,bmi_obese,1.16172
+hypertension,Never_smoke,REF
+hypertension,Ever_smoke,0.097167
+hypertension,Now_smoke,0.081723
+hypertension,Never_drink,REF
+hypertension,Ever_drink,0.222135
+hypertension,Now_drink,0.339044
+ischemic_heart_disease,HR_cat60-69,REF
+ischemic_heart_disease,HR_cat<60,0.184318
+ischemic_heart_disease,HR_cat70-79,0.007331
+ischemic_heart_disease,HR_cat80-89,0.027601
+ischemic_heart_disease,HR_cat>=90,-0.25622
+ischemic_heart_disease,AGE,0.086786
+ischemic_heart_disease,MALE,REF
+ischemic_heart_disease,FEMALE,-0.345756
+ischemic_heart_disease,bmi_normal,REF
+ischemic_heart_disease,bmi_underweight,-0.592953
+ischemic_heart_disease,bmi_overweight,0.321841
+ischemic_heart_disease,bmi_obese,0.617107
+ischemic_heart_disease,Never_smoke,REF
+ischemic_heart_disease,Ever_smoke,0.133943
+ischemic_heart_disease,Now_smoke,0.279845
+ischemic_heart_disease,Never_drink,REF
+ischemic_heart_disease,Ever_drink,0.377737
+ischemic_heart_disease,Now_drink,-0.069477
+ischemic_stroke,HR_cat60-69,REF
+ischemic_stroke,HR_cat<60,0.071456
+ischemic_stroke,HR_cat70-79,0.279148
+ischemic_stroke,HR_cat80-89,0.437323
+ischemic_stroke,HR_cat>=90,0.837057
+ischemic_stroke,AGE,0.09066
+ischemic_stroke,MALE,REF
+ischemic_stroke,FEMALE,-0.260478
+ischemic_stroke,bmi_normal,REF
+ischemic_stroke,bmi_underweight,-0.068895
+ischemic_stroke,bmi_overweight,0.440064
+ischemic_stroke,bmi_obese,0.53031
+ischemic_stroke,Never_smoke,REF
+ischemic_stroke,Ever_smoke,0.209785
+ischemic_stroke,Now_smoke,0.657639
+ischemic_stroke,Never_drink,REF
+ischemic_stroke,Ever_drink,0.203407
+ischemic_stroke,Now_drink,0.136869
+migraine,HR_cat60-69,REF
+migraine,HR_cat<60,0.1785802
+migraine,HR_cat70-79,-0.0222494
+migraine,HR_cat80-89,0.3703828
+migraine,HR_cat>=90,0.492667
+migraine,AGE,0.0005605
+migraine,MALE,REF
+migraine,FEMALE,1.2063488
+migraine,bmi_normal,REF
+migraine,bmi_underweight,-0.3796271
+migraine,bmi_overweight,0.1365617
+migraine,bmi_obese,0.1635858
+migraine,Never_smoke,REF
+migraine,Ever_smoke,0.30192
+migraine,Now_smoke,0.2017923
+migraine,Never_drink,REF
+migraine,Ever_drink,0.3245442
+migraine,Now_drink,-0.3845493"""
+    
+    from io import StringIO
+    df = pd.read_csv(StringIO(data_content))
+    
+    # Clean up disease names and standardize
+    disease_name_map = {
+    'DEATH': 'Death',
+    't2d': 'Type 2 Diabetes',
+    'af': 'Atrial Fibrillation',
+    'anxiety': 'Anxiety',
+    'ckd': 'Chronic Kidney Disease',
+    'gerd': 'Gastroesophageal Reflux Disease',
+    'heart_failure': 'Heart Failure',
+    'anemias': 'Anemias',
+    'asthma': 'Asthma',
+    'atherosclerosis': 'Atherosclerosis',
+    'cardiac_arrhythmia': 'Cardiac Arrhythmia',
+    'dementia': 'Dementia',
+    'depression': 'Depression',
+    'hypertension': 'Hypertension',
+    'ischemic_heart_disease': 'Ischemic Heart Disease',
+    'ischemic_stroke': 'Ischemic Stroke',
+    'migraine': 'Migraine',
+    }
+    
+    df['Disease'] = df['Disease'].map(disease_name_map)
+    return df
+
+# Load the percentile data from the uploaded file
+@st.cache_data 
+def load_percentile_data():
+    """Load the actual percentile data from HR_quantile_20250829.txt"""
+    
+    # Read the uploaded file content
+    try:
+        with open('HR_quantile_20250829.txt', 'r') as f:
+            content = f.read()
+    except FileNotFoundError:
+        # If file not found, use the data provided in the documents
+        content = """Disease	SEX	AGE	1%	3%	5%	10%	15%	20%	30%	40%	50%	60%	70%	80%	85%	90%	95%	98%	100%
+    DEATH	1	<40	1.584	1.742	1.821	2.137	2.369	2.455	2.613	2.771	2.929	3.020	3.166	3.334	3.416	3.592	3.778	4.003	4.565
+    DEATH	1	40-44	3.167	3.167	3.240	3.319	3.326	3.404	3.483	3.495	3.574	3.723	3.812	4.004	4.152	4.243	4.402	4.569	4.961
+    DEATH	1	45-49	3.563	3.563	3.636	3.714	3.722	3.800	3.879	3.891	4.030	4.120	4.208	4.455	4.548	4.637	4.798	4.965	5.290
+    DEATH	1	50-54	3.952	3.959	4.031	4.111	4.117	4.196	4.275	4.287	4.426	4.518	4.606	4.844	4.944	5.033	5.193	5.358	5.686
+    DEATH	1	55-59	4.348	4.355	4.427	4.505	4.512	4.585	4.664	4.676	4.755	4.835	4.993	5.157	5.260	5.352	5.510	5.678	6.228
+    DEATH	1	>=60	4.751	4.823	4.901	4.909	4.988	5.068	5.158	5.304	5.384	5.473	5.621	5.772	5.869	6.010	6.211	6.473	7.612
+    DEATH	2	<40	0.897	0.976	1.133	1.372	1.530	1.688	1.847	2.005	2.084	2.242	2.322	2.401	2.479	2.571	2.729	2.912	3.957
+    DEATH	2	40-44	2.480	2.480	2.480	2.480	2.559	2.559	2.639	2.717	2.718	2.797	2.875	2.954	3.044	3.118	3.227	3.463	4.353
+    DEATH	2	45-49	2.876	2.876	2.876	2.876	2.955	2.955	3.034	3.113	3.114	3.193	3.271	3.350	3.362	3.509	3.604	3.794	4.749
+    DEATH	2	50-54	3.272	3.272	3.272	3.344	3.351	3.351	3.430	3.510	3.510	3.589	3.667	3.746	3.758	3.838	3.984	4.177	4.999
+    DEATH	2	55-59	3.668	3.668	3.668	3.668	3.747	3.747	3.826	3.904	3.905	3.985	3.996	4.142	4.154	4.233	4.313	4.459	5.462
+    DEATH	2	>=60	4.064	4.064	4.064	4.143	4.221	4.222	4.301	4.392	4.532	4.617	4.696	4.788	4.867	5.013	5.172	5.488	6.926
+    t2d	1	<40	0.744	1.318	1.450	1.757	1.978	2.109	2.307	2.482	2.614	2.812	3.010	3.218	3.350	3.482	3.617	3.815	4.041
+    t2d	1	40-44	2.160	2.637	2.637	2.769	2.834	2.900	3.076	3.167	3.279	3.474	3.680	3.878	3.944	4.015	4.145	4.210	4.371
+    t2d	1	45-49	2.695	2.966	2.966	3.098	3.164	3.230	3.405	3.497	3.609	3.740	4.010	4.188	4.273	4.345	4.474	4.540	4.700
+    t2d	1	50-54	3.059	3.296	3.362	3.428	3.494	3.560	3.735	3.826	3.938	4.070	4.230	4.471	4.603	4.674	4.804	4.870	5.030
+    t2d	1	55-59	3.625	3.625	3.691	3.757	3.823	3.889	4.027	4.130	4.262	4.331	4.491	4.735	4.866	4.961	5.098	5.180	5.359
+    t2d	1	>=60	3.513	3.955	4.021	4.153	4.224	4.351	4.460	4.582	4.686	4.815	4.987	5.191	5.315	5.449	5.597	5.795	6.850
+    t2d	2	<40	0.547	1.074	1.272	1.469	1.667	1.889	2.110	2.241	2.407	2.505	2.637	2.866	3.010	3.219	3.482	3.680	4.107
+    t2d	2	40-44	1.799	1.931	2.272	2.703	2.703	2.769	2.835	2.901	2.966	2.970	3.208	3.405	3.746	3.812	3.944	4.010	4.437
+    t2d	2	45-49	2.194	2.392	3.032	3.032	3.098	3.098	3.164	3.230	3.296	3.367	3.551	3.735	4.002	4.141	4.273	4.339	4.766
+    t2d	2	50-54	2.524	2.722	3.362	3.362	3.428	3.428	3.494	3.560	3.626	3.629	3.867	3.999	4.065	4.471	4.603	4.669	5.096
+    t2d	2	55-59	2.854	3.051	3.692	3.692	3.692	3.757	3.823	3.889	3.918	3.955	4.196	4.328	4.394	4.801	4.932	4.998	5.362
+    t2d	2	>=60	3.249	3.645	4.021	4.021	4.087	4.153	4.219	4.351	4.483	4.592	4.724	4.987	5.119	5.262	5.460	5.658	7.174
+    af	1	<40	1.185	1.925	2.021	2.310	2.582	2.791	3.017	3.176	3.306	3.465	3.565	3.720	3.786	3.879	4.042	4.143	4.405
+    af	1	40-44	3.013	3.641	3.715	3.850	3.908	3.946	4.038	4.098	4.172	4.239	4.326	4.400	4.432	4.528	4.624	4.680	4.886
+    af	1	45-49	3.675	4.122	4.218	4.331	4.406	4.427	4.518	4.586	4.653	4.720	4.807	4.875	4.913	5.009	5.105	5.180	5.367
+    af	1	50-54	4.471	4.603	4.678	4.812	4.892	4.908	5.004	5.089	5.135	5.201	5.288	5.368	5.419	5.490	5.586	5.678	5.849
+    af	1	55-59	4.988	5.118	5.180	5.293	5.385	5.407	5.486	5.570	5.616	5.683	5.770	5.829	5.883	5.971	6.068	6.159	6.330
+    af	1	>=60	5.323	5.660	5.774	5.871	5.963	6.011	6.155	6.256	6.352	6.448	6.573	6.715	6.771	6.923	7.122	7.441	9.335
+    af	2	<40	0.120	0.794	1.149	1.341	1.534	1.757	2.111	2.304	2.496	2.597	2.785	2.881	2.978	2.982	3.108	3.271	3.629
+    af	2	40-44	1.949	2.141	2.769	3.074	3.074	3.170	3.170	3.266	3.362	3.393	3.459	3.493	3.560	3.656	3.752	3.848	4.019
+    af	2	45-49	2.526	2.815	3.442	3.555	3.555	3.651	3.685	3.747	3.844	3.878	3.940	3.974	4.048	4.132	4.233	4.329	4.592
+    af	2	50-54	3.008	3.296	4.020	4.036	4.054	4.132	4.224	4.229	4.325	4.359	4.421	4.455	4.522	4.592	4.714	4.811	5.073
+    af	2	55-59	3.489	3.778	4.517	4.517	4.535	4.614	4.648	4.710	4.806	4.840	4.902	4.936	5.032	5.078	5.196	5.292	5.554
+    af	2	>=60	4.066	4.775	4.999	5.090	5.095	5.186	5.287	5.384	5.480	5.576	5.677	5.802	5.899	6.057	6.254	6.543	8.468
+    anxiety	1	<40	0.446	0.538	0.568	0.645	0.702	0.739	0.816	0.873	0.909	0.966	1.023	1.108	1.146	1.227	1.325	1.438	1.755
+    anxiety	1	40-44	0.929	0.929	0.958	0.986	1.015	1.049	1.106	1.136	1.193	1.225	1.288	1.375	1.426	1.485	1.582	1.667	1.988
+    anxiety	1	45-49	1.071	1.071	1.100	1.157	1.191	1.220	1.276	1.307	1.345	1.392	1.455	1.540	1.581	1.643	1.747	1.838	2.044
+    anxiety	1	50-54	1.213	1.242	1.270	1.327	1.339	1.390	1.420	1.459	1.506	1.546	1.606	1.698	1.744	1.807	1.899	1.980	2.215
+    anxiety	1	55-59	1.355	1.384	1.412	1.475	1.504	1.532	1.566	1.601	1.648	1.686	1.745	1.826	1.883	1.944	2.041	2.128	2.442
+    anxiety	1	>=60	1.497	1.554	1.617	1.646	1.702	1.731	1.771	1.818	1.873	1.915	1.972	2.057	2.119	2.193	2.297	2.410	3.066
+    anxiety	2	<40	1.002	1.096	1.124	1.181	1.238	1.286	1.372	1.408	1.445	1.493	1.548	1.579	1.607	1.635	1.706	1.819	2.402
+    anxiety	2	40-44	1.457	1.457	1.485	1.542	1.570	1.605	1.664	1.664	1.692	1.721	1.749	1.777	1.777	1.821	1.925	2.028	2.544
+    anxiety	2	45-49	1.599	1.599	1.627	1.684	1.713	1.747	1.804	1.806	1.834	1.863	1.891	1.919	1.919	1.948	2.045	2.164	2.686
+    anxiety	2	50-54	1.741	1.769	1.769	1.826	1.861	1.889	1.946	1.948	1.976	2.005	2.033	2.061	2.061	2.061	2.166	2.284	2.771
+    anxiety	2	55-59	1.883	1.883	1.911	1.968	1.997	2.009	2.088	2.090	2.118	2.122	2.147	2.175	2.204	2.204	2.266	2.380	2.941
+    anxiety	2	>=60	2.025	2.053	2.082	2.145	2.173	2.202	2.232	2.260	2.289	2.337	2.374	2.408	2.436	2.488	2.551	2.682	3.212
+    ckd	1	<40	1.564	1.643	1.734	2.090	2.347	2.434	2.660	2.816	2.973	3.117	3.294	3.464	3.555	3.698	3.842	3.920	4.252
+    ckd	1	40-44	3.084	3.129	3.129	3.207	3.285	3.347	3.455	3.621	3.712	3.855	3.998	4.155	4.211	4.246	4.311	4.402	4.643
+    ckd	1	45-49	3.469	3.520	3.520	3.598	3.677	3.738	3.846	3.995	4.090	4.230	4.390	4.529	4.559	4.637	4.702	4.793	5.034
+    ckd	1	50-54	3.860	3.911	3.938	3.989	4.068	4.146	4.224	4.386	4.481	4.572	4.729	4.891	4.950	5.022	5.094	5.184	5.425
+    ckd	1	55-59	4.268	4.302	4.346	4.381	4.459	4.520	4.615	4.743	4.856	4.951	5.059	5.250	5.328	5.406	5.485	5.576	5.817
+    ckd	1	>=60	4.689	4.720	4.772	4.863	4.990	5.085	5.185	5.303	5.420	5.563	5.700	5.838	5.944	6.059	6.250	6.485	8.128
+    ckd	2	<40	0.959	1.116	1.195	1.508	1.686	1.897	2.038	2.142	2.290	2.446	2.524	2.703	2.860	3.016	3.237	3.394	3.775
+    ckd	2	40-44	2.445	2.601	2.681	2.681	2.681	2.759	2.837	2.850	2.916	2.994	3.173	3.407	3.550	3.707	3.785	3.863	4.195
+    ckd	2	45-49	2.914	3.071	3.072	3.072	3.149	3.150	3.229	3.307	3.385	3.398	3.642	3.798	3.942	4.081	4.176	4.254	4.586
+    ckd	2	50-54	3.305	3.462	3.463	3.463	3.541	3.541	3.620	3.698	3.776	3.789	4.033	4.190	4.333	4.424	4.567	4.646	4.948
+    ckd	2	55-59	3.696	3.853	3.854	3.854	3.933	3.933	4.011	4.089	4.167	4.268	4.424	4.581	4.724	4.802	4.958	5.037	5.368
+    ckd	2	>=60	4.166	4.245	4.245	4.324	4.324	4.402	4.558	4.659	4.793	4.894	5.050	5.262	5.350	5.506	5.676	5.897	7.618
+    gerd	1	<40	0.475	0.496	0.503	0.568	0.619	0.666	0.717	0.761	0.785	0.816	0.856	0.883	0.904	0.925	0.946	1.017	1.122
+    gerd	1	40-44	0.877	0.902	0.925	0.927	0.951	0.952	0.975	0.979	0.999	1.009	1.026	1.050	1.064	1.092	1.139	1.163	1.217
+    gerd	1	45-49	0.997	1.021	1.044	1.059	1.071	1.074	1.094	1.107	1.122	1.145	1.166	1.191	1.208	1.234	1.279	1.303	1.336
+    gerd	1	50-54	1.116	1.140	1.164	1.187	1.190	1.193	1.216	1.237	1.252	1.265	1.288	1.326	1.350	1.374	1.398	1.422	1.479
+    gerd	1	55-59	1.235	1.262	1.284	1.308	1.312	1.332	1.337	1.359	1.380	1.395	1.415	1.453	1.472	1.496	1.520	1.544	1.598
+    gerd	1	>=60	1.377	1.403	1.427	1.431	1.454	1.475	1.506	1.546	1.570	1.594	1.621	1.663	1.687	1.731	1.779	1.860	2.302
+    gerd	2	<40	0.619	0.643	0.646	0.700	0.762	0.813	0.867	0.905	0.938	0.976	1.000	1.027	1.047	1.057	1.074	1.105	1.266
+    gerd	2	40-44	1.065	1.071	1.095	1.095	1.095	1.098	1.119	1.122	1.143	1.152	1.166	1.190	1.190	1.193	1.218	1.256	1.385
+    gerd	2	45-49	1.183	1.190	1.212	1.214	1.214	1.217	1.238	1.241	1.262	1.266	1.285	1.309	1.309	1.312	1.319	1.372	1.503
+    gerd	2	50-54	1.303	1.309	1.333	1.333	1.333	1.336	1.357	1.380	1.381	1.404	1.404	1.428	1.428	1.431	1.438	1.485	1.622
+    gerd	2	55-59	1.426	1.428	1.452	1.452	1.452	1.455	1.476	1.479	1.499	1.503	1.523	1.527	1.547	1.547	1.550	1.589	1.741
+    gerd	2	>=60	1.547	1.570	1.571	1.571	1.594	1.595	1.618	1.642	1.666	1.690	1.714	1.737	1.761	1.785	1.832	1.927	2.308
+    heart_failure	1	<40	1.151	1.639	1.725	2.051	2.353	2.443	2.685	2.887	3.059	3.227	3.453	3.662	3.767	3.923	4.061	4.211	4.439
+    heart_failure	1	40-44	2.789	3.137	3.137	3.216	3.294	3.391	3.585	3.698	3.855	3.992	4.218	4.372	4.446	4.472	4.603	4.685	4.832
+    heart_failure	1	45-49	3.296	3.529	3.529	3.608	3.742	3.817	3.977	4.090	4.247	4.378	4.551	4.708	4.839	4.865	4.999	5.078	5.224
+    heart_failure	1	50-54	3.693	3.921	3.981	4.078	4.141	4.213	4.366	4.482	4.623	4.717	4.930	5.100	5.178	5.257	5.391	5.470	5.616
+    heart_failure	1	55-59	4.107	4.314	4.373	4.470	4.530	4.601	4.699	4.855	4.986	5.102	5.244	5.414	5.555	5.649	5.780	5.862	6.008
+    heart_failure	1	>=60	4.477	4.706	4.784	4.941	5.019	5.116	5.259	5.412	5.546	5.708	5.868	6.026	6.119	6.264	6.478	6.666	8.136
+    heart_failure	2	<40	0.603	1.205	1.318	1.474	1.780	1.945	2.180	2.337	2.494	2.651	2.808	3.032	3.202	3.359	3.594	3.810	4.117
+    heart_failure	2	40-44	2.094	2.250	2.658	2.886	2.886	2.964	3.043	3.121	3.179	3.200	3.447	3.682	3.908	4.065	4.143	4.221	4.580
+    heart_failure	2	45-49	2.564	2.799	3.278	3.278	3.278	3.357	3.435	3.513	3.592	3.726	3.917	4.074	4.300	4.457	4.535	4.614	4.973
+    heart_failure	2	50-54	2.956	3.192	3.670	3.670	3.749	3.749	3.827	3.906	3.984	4.119	4.309	4.466	4.692	4.849	4.927	5.006	5.365
+    heart_failure	2	55-59	3.348	3.584	4.062	4.062	4.141	4.141	4.219	4.298	4.376	4.545	4.702	4.858	5.084	5.163	5.319	5.398	5.757
+    heart_failure	2	>=60	3.819	4.368	4.455	4.533	4.533	4.611	4.768	4.925	5.015	5.160	5.329	5.555	5.643	5.800	6.025	6.258	7.986
+    anemias	1	<40	-0.859	-0.794	-0.740	-0.688	-0.638	-0.573	-0.524	-0.496	-0.470	-0.445	-0.408	-0.359	-0.319	-0.270	-0.214	-0.141	0.204
+    anemias	1	40-44	-0.948	-0.922	-0.886	-0.792	-0.767	-0.742	-0.624	-0.599	-0.575	-0.562	-0.546	-0.508	-0.437	-0.317	-0.278	-0.240	0.000
+    anemias	1	45-49	-1.011	-0.975	-0.949	-0.856	-0.831	-0.805	-0.675	-0.651	-0.637	-0.613	-0.585	-0.448	-0.381	-0.355	-0.329	-0.290	-0.063
+    anemias	1	50-54	-1.064	-1.038	-1.022	-0.920	-0.893	-0.866	-0.738	-0.713	-0.689	-0.673	-0.635	-0.451	-0.432	-0.405	-0.367	-0.219	-0.127
+    anemias	1	55-59	-1.125	-1.086	-1.048	-0.958	-0.929	-0.884	-0.780	-0.764	-0.740	-0.712	-0.612	-0.497	-0.482	-0.459	-0.418	-0.257	-0.190
+    anemias	1	>=60	-1.203	-1.140	-1.097	-1.024	-0.978	-0.929	-0.880	-0.852	-0.826	-0.788	-0.688	-0.595	-0.560	-0.535	-0.481	-0.333	-0.254
+    anemias	2	<40	0.506	0.584	0.636	0.686	0.710	0.725	0.750	0.763	0.787	0.802	0.827	0.862	0.891	0.929	0.967	1.032	1.437
+    anemias	2	40-44	0.417	0.492	0.531	0.610	0.622	0.633	0.648	0.675	0.684	0.687	0.700	0.713	0.725	0.725	0.725	0.956	1.234
+    anemias	2	45-49	0.367	0.431	0.470	0.546	0.559	0.571	0.584	0.608	0.611	0.624	0.636	0.649	0.649	0.662	0.662	0.878	1.170
+    anemias	2	50-54	0.327	0.393	0.445	0.483	0.506	0.508	0.532	0.544	0.547	0.560	0.573	0.586	0.586	0.598	0.598	0.813	1.107
+    anemias	2	55-59	0.289	0.378	0.407	0.432	0.443	0.444	0.468	0.481	0.484	0.497	0.509	0.522	0.522	0.535	0.535	0.713	1.043
+    anemias	2	>=60	0.178	0.239	0.267	0.305	0.328	0.341	0.367	0.381	0.395	0.408	0.420	0.446	0.446	0.459	0.471	0.471	0.980
+    asthma	1	<40	0.696	0.731	0.794	0.940	1.044	1.083	1.187	1.291	1.358	1.466	1.574	1.682	1.756	1.826	1.890	1.937	2.274
+    asthma	1	40-44	1.183	1.287	1.392	1.427	1.462	1.468	1.538	1.675	1.721	1.784	1.930	2.000	2.035	2.069	2.169	2.286	2.448
+    asthma	1	45-49	1.386	1.466	1.567	1.601	1.636	1.671	1.744	1.852	1.918	1.957	2.104	2.174	2.209	2.250	2.390	2.460	2.622
+    asthma	1	50-54	1.560	1.636	1.741	1.775	1.810	1.845	1.921	2.026	2.092	2.131	2.278	2.348	2.383	2.418	2.564	2.668	2.796
+    asthma	1	55-59	1.738	1.885	1.915	1.949	1.984	2.019	2.095	2.200	2.266	2.302	2.452	2.522	2.557	2.610	2.773	2.843	2.970
+    asthma	1	>=60	1.949	2.089	2.124	2.165	2.228	2.298	2.371	2.441	2.514	2.615	2.688	2.796	2.866	2.924	3.051	3.179	3.991
+    asthma	2	<40	1.029	1.064	1.092	1.203	1.308	1.377	1.447	1.517	1.586	1.625	1.691	1.834	1.912	2.000	2.124	2.228	2.607
+    asthma	2	40-44	1.545	1.722	1.726	1.726	1.731	1.760	1.795	1.830	1.836	1.865	2.011	2.112	2.263	2.333	2.368	2.402	2.781
+    asthma	2	45-49	1.754	1.900	1.900	1.900	1.934	1.934	1.969	2.004	2.039	2.132	2.217	2.286	2.437	2.507	2.542	2.577	2.920
+    asthma	2	50-54	1.934	2.074	2.074	2.074	2.108	2.108	2.143	2.178	2.213	2.321	2.391	2.460	2.611	2.676	2.716	2.751	3.129
+    asthma	2	55-59	2.218	2.248	2.248	2.248	2.283	2.283	2.317	2.352	2.387	2.495	2.565	2.634	2.785	2.820	2.890	2.925	3.303
+    asthma	2	>=60	2.393	2.422	2.422	2.457	2.463	2.491	2.561	2.631	2.700	2.739	2.843	2.959	3.029	3.099	3.203	3.293	4.073
+    atherosclerosis	1	<40	1.622	1.739	1.852	2.154	2.402	2.561	2.733	2.899	3.058	3.201	3.306	3.472	3.562	3.697	3.852	3.935	4.296
+    atherosclerosis	1	40-44	3.269	3.313	3.313	3.465	3.509	3.555	3.637	3.720	3.803	3.946	4.029	4.142	4.194	4.277	4.387	4.462	4.710
+    atherosclerosis	1	45-49	3.683	3.727	3.727	3.882	3.924	3.969	4.052	4.134	4.217	4.330	4.443	4.556	4.609	4.691	4.801	4.876	5.124
+    atherosclerosis	1	50-54	4.139	4.142	4.224	4.307	4.376	4.390	4.473	4.549	4.631	4.714	4.857	4.970	5.023	5.106	5.219	5.301	5.538
+    atherosclerosis	1	55-59	4.556	4.556	4.639	4.721	4.790	4.797	4.880	4.959	5.038	5.117	5.230	5.354	5.437	5.509	5.630	5.716	5.953
+    atherosclerosis	1	>=60	4.970	5.053	5.121	5.211	5.287	5.328	5.455	5.550	5.644	5.768	5.874	6.017	6.108	6.243	6.420	6.668	8.076
+    atherosclerosis	2	<40	0.674	0.997	1.080	1.328	1.577	1.742	1.908	2.074	2.232	2.322	2.481	2.571	2.646	2.789	2.966	3.159	3.595
+    atherosclerosis	2	40-44	2.248	2.413	2.627	2.653	2.653	2.736	2.819	2.895	2.902	2.985	3.060	3.226	3.298	3.452	3.535	3.617	4.050
+    atherosclerosis	2	45-49	2.745	2.993	3.067	3.067	3.150	3.150	3.233	3.309	3.316	3.399	3.475	3.640	3.700	3.866	3.949	4.032	4.464
+    atherosclerosis	2	50-54	3.159	3.407	3.482	3.482	3.564	3.564	3.647	3.730	3.730	3.813	3.889	4.054	4.114	4.280	4.363	4.446	4.879
+    atherosclerosis	2	55-59	3.573	3.822	3.896	3.896	3.979	3.979	4.061	4.137	4.144	4.227	4.303	4.468	4.529	4.694	4.777	4.860	5.293
+    atherosclerosis	2	>=60	4.070	4.310	4.310	4.393	4.393	4.476	4.558	4.717	4.800	4.890	5.026	5.138	5.274	5.380	5.605	5.801	7.593
+    cardiac_arrhythmia	1	<40	1.081	1.136	1.244	1.406	1.568	1.652	1.784	1.874	1.951	2.036	2.108	2.181	2.221	2.275	2.329	2.379	2.476
+    cardiac_arrhythmia	1	40-44	2.163	2.163	2.188	2.235	2.285	2.325	2.379	2.414	2.447	2.487	2.523	2.564	2.591	2.614	2.649	2.699	2.746
+    cardiac_arrhythmia	1	45-49	2.433	2.433	2.469	2.506	2.555	2.596	2.650	2.685	2.722	2.762	2.793	2.846	2.861	2.884	2.919	2.969	3.016
+    cardiac_arrhythmia	1	50-54	2.704	2.704	2.758	2.807	2.830	2.866	2.920	2.955	2.996	3.032	3.070	3.117	3.136	3.155	3.190	3.240	3.287
+    cardiac_arrhythmia	1	55-59	2.974	2.974	3.028	3.078	3.099	3.136	3.190	3.225	3.261	3.298	3.334	3.387	3.406	3.429	3.460	3.484	3.557
+    cardiac_arrhythmia	1	>=60	3.244	3.298	3.317	3.392	3.442	3.465	3.533	3.587	3.641	3.699	3.766	3.843	3.893	3.951	4.055	4.253	5.118
+    cardiac_arrhythmia	2	<40	1.316	1.370	1.424	1.568	1.699	1.852	1.940	2.019	2.127	2.181	2.240	2.325	2.343	2.416	2.505	2.562	2.687
+    cardiac_arrhythmia	2	40-44	2.373	2.398	2.398	2.398	2.452	2.452	2.506	2.560	2.574	2.614	2.649	2.703	2.757	2.780	2.811	2.834	2.981
+    cardiac_arrhythmia	2	45-49	2.649	2.668	2.668	2.668	2.722	2.722	2.776	2.830	2.865	2.884	2.919	2.997	3.028	3.051	3.082	3.105	3.251
+    cardiac_arrhythmia	2	50-54	2.938	2.938	2.938	2.938	2.992	2.992	3.046	3.101	3.136	3.155	3.190	3.267	3.298	3.321	3.352	3.375	3.521
+    cardiac_arrhythmia	2	55-59	3.208	3.209	3.209	3.209	3.263	3.263	3.317	3.371	3.406	3.425	3.460	3.537	3.568	3.591	3.622	3.645	3.792
+    cardiac_arrhythmia	2	>=60	3.479	3.479	3.479	3.533	3.587	3.587	3.676	3.730	3.785	3.839	3.912	3.980	4.024	4.109	4.217	4.398	5.245
+    dementia	1	<40	4.625	4.856	5.087	5.582	6.243	6.706	7.168	7.432	7.859	8.093	8.340	8.691	8.802	9.018	9.153	9.264	9.488
+    dementia	1	40-44	8.806	8.934	9.133	9.249	9.387	9.478	9.510	9.709	9.727	9.940	9.973	10.174	10.189	10.327	10.421	10.443	10.644
+    dementia	1	45-49	9.962	10.087	10.286	10.405	10.541	10.634	10.658	10.799	10.883	11.096	11.131	11.330	11.346	11.484	11.577	11.591	11.800
+    dementia	1	50-54	11.015	11.243	11.367	11.561	11.697	11.790	11.822	12.021	12.054	12.253	12.300	12.486	12.516	12.640	12.733	12.765	12.957
+    dementia	1	55-59	12.274	12.401	12.523	12.718	12.853	12.946	12.979	13.178	13.212	13.409	13.459	13.643	13.658	13.778	13.871	13.903	14.141
+    dementia	1	>=60	13.448	13.757	13.874	14.027	14.122	14.258	14.490	14.721	15.020	15.259	15.490	15.739	15.955	16.184	16.647	17.571	21.426
+    dementia	2	<40	4.845	5.076	5.308	5.770	6.464	6.926	7.389	7.663	8.082	8.313	8.560	9.005	9.007	9.238	9.254	9.485	9.737
+    dementia	2	40-44	9.169	9.470	9.470	9.470	9.698	9.701	9.716	9.932	9.947	10.163	10.179	10.395	10.395	10.410	10.623	10.641	10.893
+    dementia	2	45-49	10.322	10.626	10.626	10.626	10.854	10.857	10.872	11.088	11.104	11.319	11.335	11.551	11.551	11.583	11.779	11.797	12.049
+    dementia	2	50-54	11.665	11.782	11.782	11.782	12.011	12.013	12.121	12.244	12.288	12.476	12.519	12.707	12.707	12.739	12.936	12.953	13.177
+    dementia	2	55-59	12.822	12.938	12.938	12.938	13.167	13.169	13.185	13.401	13.416	13.632	13.647	13.863	13.863	13.895	14.092	14.109	14.333
+    dementia	2	>=60	14.094	14.094	14.094	14.323	14.325	14.554	14.572	14.803	15.019	15.266	15.497	15.942	16.173	16.404	16.653	17.563	21.740
+    depression	1	<40	0.322	0.407	0.427	0.484	0.525	0.566	0.626	0.667	0.712	0.771	0.848	1.141	1.244	1.328	1.410	1.487	2.170
+    depression	1	40-44	0.687	0.687	0.708	0.728	0.750	0.813	0.839	0.874	0.900	1.092	1.258	1.402	1.486	1.527	1.569	1.749	2.272
+    depression	1	45-49	0.789	0.789	0.809	0.850	0.870	0.915	0.956	0.981	1.059	1.296	1.366	1.524	1.588	1.630	1.675	1.843	2.374
+    depression	1	50-54	0.891	0.891	0.911	0.952	0.972	1.037	1.062	1.098	1.295	1.406	1.487	1.642	1.689	1.735	1.792	1.985	2.435
+    depression	1	55-59	0.992	0.992	1.013	1.053	1.074	1.118	1.164	1.200	1.397	1.502	1.565	1.686	1.776	1.832	1.919	2.087	2.597
+    depression	1	>=60	1.094	1.114	1.135	1.196	1.236	1.257	1.301	1.362	1.478	1.604	1.687	1.789	1.877	1.960	2.066	2.218	2.760
+    depression	2	<40	0.893	0.958	0.978	1.039	1.080	1.121	1.178	1.202	1.243	1.283	1.308	1.344	1.373	1.566	1.692	1.930	2.742
+    depression	2	40-44	1.239	1.239	1.259	1.279	1.320	1.365	1.385	1.390	1.405	1.426	1.446	1.451	1.471	1.729	1.871	2.063	2.844
+    depression	2	45-49	1.340	1.340	1.361	1.381	1.401	1.422	1.466	1.487	1.507	1.527	1.532	1.548	1.552	1.787	1.913	2.144	2.945
+    depression	2	50-54	1.442	1.442	1.462	1.483	1.503	1.523	1.568	1.588	1.609	1.629	1.634	1.649	1.654	1.674	1.992	2.225	2.728
+    depression	2	55-59	1.544	1.544	1.564	1.584	1.605	1.625	1.670	1.690	1.710	1.715	1.731	1.751	1.751	1.776	2.054	2.173	2.830
+    depression	2	>=60	1.645	1.645	1.666	1.706	1.747	1.771	1.792	1.812	1.832	1.857	1.893	1.934	1.954	1.995	2.156	2.295	3.063
+    hypertension	1	<40	0.884	1.248	1.334	1.593	1.819	1.940	2.122	2.304	2.475	2.682	2.920	3.138	3.260	3.405	3.526	3.623	3.962
+    hypertension	1	40-44	2.036	2.425	2.425	2.507	2.546	2.607	2.765	3.046	3.127	3.248	3.587	3.708	3.769	3.829	3.926	4.129	4.265
+    hypertension	1	45-49	2.430	2.728	2.728	2.810	2.849	2.910	3.052	3.331	3.409	3.531	3.785	3.987	4.048	4.132	4.233	4.432	4.569
+    hypertension	1	50-54	2.807	3.031	3.092	3.128	3.153	3.213	3.310	3.591	3.712	3.810	3.956	4.254	4.314	4.411	4.533	4.714	4.872
+    hypertension	1	55-59	3.123	3.334	3.395	3.432	3.456	3.516	3.577	3.836	3.976	4.076	4.173	4.496	4.593	4.699	4.836	4.997	5.175
+    hypertension	1	>=60	3.370	3.638	3.698	3.759	3.819	3.917	4.062	4.197	4.319	4.462	4.622	4.815	4.942	5.102	5.284	5.467	6.154
+    hypertension	2	<40	0.483	0.968	1.054	1.175	1.392	1.539	1.720	1.878	2.024	2.121	2.205	2.545	2.705	2.943	3.185	3.307	3.803
+    hypertension	2	40-44	1.635	1.756	1.992	2.266	2.266	2.327	2.387	2.424	2.448	2.509	2.887	3.044	3.428	3.488	3.610	3.670	4.091
+    hypertension	2	45-49	1.998	2.180	2.569	2.569	2.569	2.630	2.690	2.751	2.791	2.812	3.190	3.332	3.469	3.792	3.913	3.973	4.410
+    hypertension	2	50-54	2.302	2.423	2.872	2.872	2.933	2.933	2.994	3.054	3.075	3.115	3.493	3.614	3.675	4.095	4.216	4.277	4.713
+    hypertension	2	55-59	2.605	2.726	3.175	3.175	3.175	3.236	3.297	3.357	3.357	3.418	3.796	3.917	3.978	4.337	4.495	4.580	5.016
+    hypertension	2	>=60	2.908	3.272	3.479	3.479	3.539	3.600	3.660	3.782	3.903	4.038	4.160	4.402	4.584	4.762	4.943	5.125	6.338
+    ischemic_heart_disease	1	<40	1.577	1.823	1.924	2.256	2.526	2.690	2.911	3.074	3.221	3.359	3.498	3.655	3.741	3.848	4.002	4.136	4.659
+    ischemic_heart_disease	1	40-44	3.339	3.471	3.471	3.605	3.692	3.751	3.838	3.967	4.071	4.140	4.262	4.349	4.396	4.455	4.570	4.716	5.093
+    ischemic_heart_disease	1	45-49	3.836	3.905	3.905	4.057	4.126	4.203	4.292	4.401	4.507	4.574	4.681	4.783	4.830	4.889	5.004	5.149	5.527
+    ischemic_heart_disease	1	50-54	4.270	4.339	4.426	4.513	4.592	4.636	4.726	4.835	4.921	5.008	5.108	5.217	5.264	5.323	5.437	5.583	5.961
+    ischemic_heart_disease	1	55-59	4.773	4.773	4.860	4.947	4.994	5.051	5.120	5.229	5.331	5.403	5.489	5.611	5.687	5.757	5.871	6.017	6.395
+    ischemic_heart_disease	1	>=60	5.207	5.224	5.294	5.468	5.529	5.616	5.728	5.837	5.958	6.050	6.181	6.326	6.422	6.538	6.739	7.013	8.388
+    ischemic_heart_disease	2	<40	0.884	1.390	1.477	1.712	1.925	2.099	2.345	2.518	2.692	2.788	2.952	3.039	3.145	3.274	3.482	3.656	4.227
+    ischemic_heart_disease	2	40-44	2.533	2.706	3.056	3.126	3.126	3.212	3.299	3.386	3.433	3.473	3.621	3.743	3.830	3.916	4.003	4.090	4.748
+    ischemic_heart_disease	2	45-49	3.053	3.314	3.560	3.560	3.646	3.646	3.733	3.820	3.881	3.907	4.055	4.187	4.264	4.350	4.437	4.524	5.181
+    ischemic_heart_disease	2	50-54	3.487	3.748	3.994	3.994	4.080	4.080	4.167	4.254	4.315	4.341	4.489	4.611	4.663	4.784	4.871	4.958	5.529
+    ischemic_heart_disease	2	55-59	3.921	4.182	4.427	4.427	4.514	4.514	4.601	4.688	4.749	4.775	4.923	5.045	5.096	5.218	5.305	5.392	6.049
+    ischemic_heart_disease	2	>=60	4.442	4.861	4.861	4.948	4.948	5.035	5.183	5.270	5.382	5.479	5.617	5.739	5.878	5.990	6.173	6.433	8.256
+    ischemic_stroke	1	<40	1.813	1.926	2.085	2.448	2.720	2.857	3.111	3.264	3.445	3.613	3.794	3.975	4.045	4.180	4.452	4.633	4.927
+    ischemic_stroke	1	40-44	3.626	3.626	3.717	3.808	3.898	3.989	4.157	4.247	4.338	4.429	4.519	4.693	4.815	4.996	5.087	5.223	5.380
+    ischemic_stroke	1	45-49	4.080	4.080	4.170	4.261	4.352	4.442	4.610	4.701	4.792	4.882	5.001	5.177	5.268	5.405	5.540	5.652	5.834
+    ischemic_stroke	1	50-54	4.533	4.555	4.624	4.736	4.833	4.924	5.064	5.183	5.273	5.364	5.455	5.631	5.721	5.839	5.993	6.084	6.287
+    ischemic_stroke	1	55-59	4.986	5.008	5.077	5.168	5.258	5.349	5.517	5.608	5.698	5.789	5.879	6.007	6.089	6.221	6.378	6.537	6.740
+    ischemic_stroke	1	>=60	5.440	5.530	5.621	5.786	5.880	5.970	6.089	6.215	6.333	6.452	6.605	6.732	6.831	6.968	7.177	7.449	9.081
+    ischemic_stroke	2	<40	1.553	1.643	1.734	2.006	2.278	2.459	2.641	2.822	2.934	3.094	3.185	3.298	3.443	3.624	3.715	3.842	4.600
+    ischemic_stroke	2	40-44	3.297	3.366	3.366	3.366	3.457	3.457	3.547	3.638	3.729	3.806	3.938	4.078	4.114	4.169	4.259	4.469	5.120
+    ischemic_stroke	2	45-49	3.819	3.819	3.819	3.819	3.910	3.910	4.001	4.091	4.182	4.259	4.440	4.531	4.621	4.622	4.712	4.917	5.573
+    ischemic_stroke	2	50-54	4.273	4.273	4.273	4.273	4.363	4.363	4.454	4.544	4.635	4.713	4.893	4.984	5.013	5.075	5.165	5.293	6.027
+    ischemic_stroke	2	55-59	4.726	4.726	4.726	4.726	4.816	4.816	4.907	4.998	5.088	5.166	5.257	5.437	5.438	5.529	5.619	5.619	6.480
+    ischemic_stroke	2	>=60	5.179	5.179	5.179	5.270	5.360	5.360	5.542	5.654	5.800	5.891	5.982	6.163	6.254	6.344	6.526	6.888	8.611
+    migraine	1	<40	-0.368	-0.362	-0.226	-0.025	0.012	0.016	0.019	0.148	0.156	0.176	0.183	0.220	0.345	0.383	0.458	0.487	0.812
+    migraine	1	40-44	-0.360	-0.224	-0.197	-0.022	0.022	0.023	0.025	0.160	0.161	0.187	0.224	0.362	0.389	0.462	0.489	0.685	0.815
+    migraine	1	45-49	-0.357	-0.221	-0.158	-0.020	0.025	0.026	0.027	0.162	0.189	0.190	0.328	0.391	0.464	0.487	0.493	0.690	0.818
+    migraine	1	50-54	-0.354	-0.218	-0.154	-0.017	0.028	0.029	0.083	0.166	0.192	0.194	0.332	0.395	0.468	0.494	0.518	0.791	0.820
+    migraine	1	55-59	-0.351	-0.215	-0.151	0.012	0.031	0.032	0.087	0.169	0.194	0.234	0.369	0.470	0.472	0.497	0.658	0.796	0.823
+    migraine	1	>=60	-0.347	-0.212	-0.148	0.034	0.035	0.036	0.088	0.172	0.176	0.203	0.340	0.473	0.477	0.501	0.662	0.800	0.832
+    migraine	2	<40	0.838	0.841	0.844	0.979	1.218	1.221	1.224	1.225	1.227	1.228	1.360	1.381	1.388	1.391	1.429	1.591	2.018
+    migraine	2	40-44	0.845	0.850	0.851	1.229	1.229	1.229	1.230	1.230	1.231	1.231	1.366	1.392	1.393	1.395	1.531	1.668	2.021
+    migraine	2	45-49	0.849	0.853	1.049	1.232	1.232	1.232	1.233	1.233	1.234	1.368	1.370	1.395	1.396	1.397	1.436	1.599	2.023
+    migraine	2	50-54	0.852	0.856	0.989	1.234	1.234	1.235	1.235	1.236	1.237	1.371	1.372	1.373	1.399	1.400	1.437	1.601	2.027
+    migraine	2	55-59	0.858	0.859	1.161	1.237	1.237	1.238	1.238	1.239	1.239	1.374	1.375	1.376	1.401	1.402	1.403	1.576	2.029
+    migraine	2	>=60	0.861	0.864	1.240	1.240	1.241	1.241	1.242	1.243	1.245	1.377	1.379	1.384	1.405	1.406	1.408	1.542	2.035"""
+    
+    from io import StringIO
+    df = pd.read_csv(StringIO(content), sep='\t')
+    
+    # Map disease names to match model names
+    disease_name_map = {
+    'DEATH': 'Death',
+    't2d': 'Type 2 Diabetes',
+    'af': 'Atrial Fibrillation',
+    'anxiety': 'Anxiety',
+    'ckd': 'Chronic Kidney Disease',
+    'gerd': 'Gastroesophageal Reflux Disease',
+    'heart_failure': 'Heart Failure',
+    'anemias': 'Anemias',
+    'asthma': 'Asthma',
+    'atherosclerosis': 'Atherosclerosis',
+    'cardiac_arrhythmia': 'Cardiac Arrhythmia',
+    'dementia': 'Dementia',
+    'depression': 'Depression',
+    'hypertension': 'Hypertension',
+    'ischemic_heart_disease': 'Ischemic Heart Disease',
+    'ischemic_stroke': 'Ischemic Stroke',
+    'migraine': 'Migraine',
+    }
+    
+    # 讀完 df 後馬上清理欄名與字串欄位
+    df.columns = df.columns.str.strip()
+    
+    # 重要：去除 Disease / AGE / SEX 可能的前後空白
+    for col in ['Disease', 'AGE']:
+        df[col] = df[col].astype(str).str.strip()
+    
+    # SEX 也可能讀到字串型態＋空白，先轉成數字
+    df['SEX'] = pd.to_numeric(df['SEX'], errors='coerce')
+    
+    # Clean up disease names
+    df['Disease'] = df['Disease'].map(disease_name_map).fillna(df['Disease'])
+    
+    # Map gender codes (1=Male, 2=Female)
+    df['Gender'] = df['SEX'].map({1: 'Male', 2: 'Female'})
+    
+    # 確保百分位欄位都是數值
+    pct_cols = ['1%', '3%', '5%', '10%', '15%', '20%', '30%', '40%', '50%', '60%', '70%', '80%', '85%', '90%', '95%', '98%', '100%']
+    for c in pct_cols:
+        if c in df.columns:
+            df[c] = pd.to_numeric(df[c], errors='coerce')
+    
+    return df
+
+def calculate_bmi(height, weight, height_unit, weight_unit):
+    """Calculate BMI from height and weight with unit conversion"""
+    try:
+        if height_unit == "公分":
+            height_m = height / 100
+        elif height_unit == "英尺/英寸":
+            height_m = height * 0.0254
+        else:
+            height_m = height
+        
+        if weight_unit == "磅":
+            weight_kg = weight * 0.453592
+        else:
+            weight_kg = weight
+        
+        bmi = weight_kg / (height_m ** 2)
+        return round(bmi, 1)
+    
+    except (ZeroDivisionError, ValueError):
+        return None
+
+def get_bmi_category(bmi):
+    """Categorize BMI according to the model's categories"""
+    if bmi < 18.5:
+        return "體重過輕", "#3498db"
+    elif bmi < 24:
+        return "正常體重", "#27ae60"
+    elif bmi < 27:
+        return "體重過重", "#f39c12"
+    else:
+        return "肥胖", "#e74c3c"
+
+def get_bmi_model_category(bmi):
+    """Get BMI category for model calculation"""
+    if bmi < 18.5:
+        return 'bmi_underweight'
+    elif bmi < 24:
+        return 'bmi_normal'
+    elif bmi < 27:
+        return 'bmi_overweight'
+    else:
+        return 'bmi_obese'
+
+def get_heart_rate_category(hr):
+    """Categorize heart rate according to the model categories"""
+    if hr < 60:
+        return 'HR_cat<60'
+    elif 60 <= hr < 70:
+        return 'HR_cat60-69'
+    elif 70 <= hr < 80:
+        return 'HR_cat70-79'
+    elif 80 <= hr < 90:
+        return 'HR_cat80-89'
+    else:
+        return 'HR_cat>=90'
+
+def get_age_group_for_percentile(age):
+    """Convert age to age group for percentile lookup matching the data file"""
+    if age < 40:
+        return '<40'
+    elif age < 45:
+        return '40-44'
+    elif age < 50:
+        return '45-49'
+    elif age < 55:
+        return '50-54'
+    elif age < 60:
+        return '55-59'
+    else:
+        return '>=60'
+
+def calculate_linear_predictor(disease_name, age, gender, hr, bmi, smoking_status, drinking_status, model_df):
+    """Calculate linear predictor (LP) using Cox regression coefficients"""
+    try:
+        disease_coefs = model_df[model_df['Disease'] == disease_name].copy()
+        
+        if disease_coefs.empty:
+            return None
+        
+        lp = 0.0
+        
+        # Heart Rate Category
+        hr_cat = get_heart_rate_category(hr)
+        hr_coef = disease_coefs[disease_coefs['Variable'] == hr_cat]
+        if not hr_coef.empty and hr_coef.iloc[0]['Coef'] != 'REF':
+            lp += float(hr_coef.iloc[0]['Coef'])
+        
+        # Age
+        age_coef = disease_coefs[disease_coefs['Variable'] == 'AGE']
+        if not age_coef.empty and age_coef.iloc[0]['Coef'] != 'REF':
+            lp += float(age_coef.iloc[0]['Coef']) * age
+        
+        # Gender
+        if gender == 'Female':
+            gender_coef = disease_coefs[disease_coefs['Variable'] == 'FEMALE']
+            if not gender_coef.empty and gender_coef.iloc[0]['Coef'] != 'REF':
+                lp += float(gender_coef.iloc[0]['Coef'])
+        
+        # BMI Category
+        bmi_cat = get_bmi_model_category(bmi)
+        if bmi_cat != 'bmi_normal':
+            bmi_coef = disease_coefs[disease_coefs['Variable'] == bmi_cat]
+            if not bmi_coef.empty and bmi_coef.iloc[0]['Coef'] != 'REF':
+                lp += float(bmi_coef.iloc[0]['Coef'])
+        
+        # Smoking Status
+        if smoking_status == '曾經吸菸':
+            smoke_coef = disease_coefs[disease_coefs['Variable'] == 'Ever_smoke']
+            if not smoke_coef.empty and smoke_coef.iloc[0]['Coef'] != 'REF':
+                lp += float(smoke_coef.iloc[0]['Coef'])
+        elif smoking_status == '目前吸菸':
+            smoke_coef = disease_coefs[disease_coefs['Variable'] == 'Now_smoke']
+            if not smoke_coef.empty and smoke_coef.iloc[0]['Coef'] != 'REF':
+                lp += float(smoke_coef.iloc[0]['Coef'])
+        
+        # Drinking Status
+        if drinking_status == '曾經飲酒':
+            drink_coef = disease_coefs[disease_coefs['Variable'] == 'Ever_drink']
+            if not drink_coef.empty and drink_coef.iloc[0]['Coef'] != 'REF':
+                lp += float(drink_coef.iloc[0]['Coef'])
+        elif drinking_status == '目前飲酒':
+            drink_coef = disease_coefs[disease_coefs['Variable'] == 'Now_drink']
+            if not drink_coef.empty and drink_coef.iloc[0]['Coef'] != 'REF':
+                lp += float(drink_coef.iloc[0]['Coef'])
+        
+        return lp
+    
+    except Exception as e:
+        st.error(f"計算 {disease_name} 的LP時發生錯誤: {str(e)}")
+        return None
+
+def calculate_percentile_rank(user_lp, disease_name, gender, age_group, percentile_df):
+    """Calculate user's percentile rank using actual percentile data"""
+    try:
+        demographic_data = percentile_df[
+            (percentile_df['Disease'] == disease_name) & 
+            (percentile_df['Gender'] == gender) & 
+            (percentile_df['AGE'] == age_group)
+        ]
+        
+        if demographic_data.empty:
+            return None, None
+        
+        row = demographic_data.iloc[0]
+        
+        # Percentile columns and their corresponding values
+        percentile_cols = ['1%', '3%', '5%', '10%', '15%', '20%', '30%', '40%', 
+                          '50%', '60%', '70%', '80%', '85%', '90%', '95%', '98%', '100%']
+        percentile_values = [1, 3, 5, 10, 15, 20, 30, 40, 50, 60, 70, 80, 85, 90, 95, 98, 100]
+        
+        # Find where user_lp falls
+        for i, col in enumerate(percentile_cols):
+            threshold = float(row[col])
+            if user_lp <= threshold:
+                exact_percentile = percentile_values[i]
+                
+                # Calculate more precise percentile if between thresholds
+                if i > 0:
+                    prev_threshold = float(row[percentile_cols[i-1]])
+                    prev_percentile = percentile_values[i-1]
+                    
+                    # Linear interpolation
+                    if threshold != prev_threshold:
+                        ratio = (user_lp - prev_threshold) / (threshold - prev_threshold)
+                        interpolated_percentile = prev_percentile + ratio * (exact_percentile - prev_percentile)
+                        return int(round(interpolated_percentile)), exact_percentile
+                
+                return exact_percentile, exact_percentile
+        
+        # If higher than 100th percentile
+        return 100, 100
+        
+    except Exception as e:
+        st.error(f"計算百分位數時發生錯誤: {str(e)}")
+        return None, None
+
+def get_risk_category_and_color(percentile, disease_name=''):
+    """Get risk category and color based on percentile"""
+    # Use consistent risk categories for all diseases including Death
+    if percentile >= 90:
+        return "高風險", "high-risk-card", "#e74c3c"
+    elif percentile >= 75:
+        return "中高風險", "moderate-risk-card", "#f39c12"
+    elif percentile >= 50:
+        return "平均風險", "percentile-card", "#3498db"
+    else:
+        return "低風險", "low-risk-card", "#27ae60"
+
+def create_percentile_gauge(percentile, disease_name):
+    """Create a gauge chart showing percentile position"""
+    # Use consistent colors for all diseases including Death
+    if percentile >= 90:
+        color = "#e74c3c"
+    elif percentile >= 75:
+        color = "#f39c12"
+    elif percentile >= 50:
+        color = "#3498db"
+    else:
+        color = "#27ae60"
+    
+    # Get Chinese disease name
+    chinese_name = DISEASE_CHINESE_NAMES.get(disease_name, disease_name)
+    title_text = f"{chinese_name}<br>風險百分位"
+    steps = [
+        {'range': [0, 50], 'color': "#d5f4e6"},
+        {'range': [50, 75], 'color': "#ffeaa7"},
+        {'range': [75, 90], 'color': "#fdcb6e"},
+        {'range': [90, 100], 'color': "#e17055"}
+    ]
+    
+    fig = go.Figure(go.Indicator(
+        mode = "gauge+number+delta",
+        value = percentile,
+        domain = {'x': [0, 1], 'y': [0, 1]},
+        title = {'text': title_text},
+        delta = {'reference': 50},
+        gauge = {
+            'axis': {'range': [None, 100]},
+            'bar': {'color': color},
+            'steps': steps,
+            'threshold': {
+                'line': {'color': "red", 'width': 4},
+                'thickness': 0.75,
+                'value': 90
+            }
+        }
+    ))
+    
+    fig.update_layout(height=300, margin=dict(l=20, r=20, t=60, b=20))
+    return fig
+
+def create_risk_summary_chart(risk_counts):
+    """Create a summary chart showing risk distribution"""
+    # Define colors for each risk category (simplified since Death now uses same categories)
+    colors = {
+        '高風險': '#e74c3c',
+        '中高風險': '#f39c12', 
+        '平均風險': '#3498db',
+        '低風險': '#27ae60'
+    }
+    
+    # Simplified risk counting since all diseases use the same categories
+    display_counts = risk_counts.copy()
+    
+    categories = list(display_counts.keys())
+    values = list(display_counts.values())
+    category_colors = [colors.get(cat, '#95a5a6') for cat in categories]
+    
+    fig = go.Figure(data=[
+        go.Bar(
+            x=categories,
+            y=values,
+            marker_color=category_colors,
+            text=values,
+            textposition='auto',
+        )
+    ])
+    
+    fig.update_layout(
+        title="風險分佈摘要",
+        xaxis_title="風險等級",
+        yaxis_title="疾病數量",
+        height=400,
+        margin=dict(l=20, r=20, t=60, b=20)
+    )
+    
+    return fig
+
+def main():
+    # Load data
+    model_df = load_model_coefficients()
+    percentile_df = load_percentile_data()
+    
+    # Get unique diseases available in both datasets
+    available_diseases = set(model_df['Disease'].unique()) & set(percentile_df['Disease'].unique())
+    diseases = list(available_diseases)
+    
+    # Header
+    st.markdown('<h1 class="main-header">❤️ 心率風險評估平台</h1>', unsafe_allow_html=True)
+    st.markdown('<p style="text-align: center; font-size: 1.2rem; color: #7f8c8d;">使用實際人口數據將您的風險與同年齡層性別相同的人群進行比較</p>', unsafe_allow_html=True)
+    
+    # Sidebar for inputs
+    with st.sidebar:
+        st.markdown("### 您的資訊")
+        
+        age = st.slider("年齡", 20, 90, 43, help="您目前的年齡")
+        gender = st.selectbox("性別", ["Male", "Female"], 
+                            format_func=lambda x: "男性" if x == "Male" else "女性",
+                            help="生理性別")
+        
+        # Height and Weight Section
+        st.markdown("### 身高體重")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            height_unit = st.selectbox("身高單位", ["公分", "英尺/英寸", "公尺"])
+        with col2:
+            weight_unit = st.selectbox("體重單位", ["公斤", "磅"])
+        
+        # Height input
+        if height_unit == "公分":
+            height = st.slider("身高 (公分)", 100, 220, 170)
+        elif height_unit == "英尺/英寸":
+            feet = st.selectbox("英尺", list(range(3, 8)), index=2)
+            inches = st.selectbox("英寸", list(range(0, 12)), index=6) 
+            height = feet * 12 + inches
+            st.write(f"身高: {feet}'{inches}\"")
+        else:
+            height = st.slider("身高 (公尺)", 1.0, 2.2, 1.7, step=0.01)
+        
+        # Weight input
+        if weight_unit == "公斤":
+            weight = st.slider("體重 (公斤)", 30, 200, 75)
+        else:
+            weight = st.slider("體重 (磅)", 66, 440, 165)
+        
+        # Calculate BMI
+        calculated_bmi = calculate_bmi(height, weight, height_unit, weight_unit)
+        
+        if calculated_bmi:
+            bmi_category, bmi_color = get_bmi_category(calculated_bmi)
+            st.markdown(f"""
+            <div class="bmi-info">
+                <h4>計算的BMI</h4>
+                <p style="font-size: 1.2rem; font-weight: bold; color: {bmi_color};">
+                    BMI: {calculated_bmi}
+                </p>
+                <p style="color: {bmi_color}; font-weight: bold;">
+                    分類: {bmi_category}
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+            bmi = calculated_bmi
+        else:
+            st.error("無法計算BMI")
+            bmi = 25.0
+        
+        # Heart rate
+        st.markdown("### 心率")
+        current_hr = st.slider("靜息心率 (bpm)", 40, 120, 72)
+        
+        # Lifestyle factors
+        st.markdown("### 生活習慣")
+        smoking_status = st.selectbox("吸菸狀況", ["從未吸菸", "曾經吸菸", "目前吸菸"])
+        drinking_status = st.selectbox("飲酒狀況", ["從未飲酒", "曾經飲酒", "目前飲酒"])
+        
+        # Disease category filter
+        st.markdown("### 疾病分類")
+        st.markdown("選擇要分析的疾病類型：")
+        
+        category_filters = {}
+        for category in DISEASE_CATEGORIES.keys():
+            category_filters[category] = st.checkbox(
+                category, 
+                value=True,
+                help=f"在分析中包含{category}"
+            )
+    
+    # Determine user's demographic group
+    age_group = get_age_group_for_percentile(age)
+    
+    # Enhanced profile section
+    gender_chinese = "女性" if gender == "Female" else "男性"
+    st.markdown(f"""
+    <div class="profile-info">
+        <h3>👤 您的健康檔案</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
+            <div class="profile-detail">
+                <h4 style="margin: 0 0 0.5rem 0;">📊 比較群體</h4>
+                <p style="margin: 0; font-size: 1.1rem;"><strong>您的比較對象是：</strong></p>
+                <p style="margin: 0.25rem 0; font-size: 1.3rem; font-weight: bold;">{age_group} 歲的{gender_chinese}</p>
+            </div>
+            <div class="profile-detail">
+                <h4 style="margin: 0 0 0.5rem 0;">🥼 您的詳細資料</h4>
+                <p style="margin: 0;"><strong>年齡：</strong> {age} 歲</p>
+                <p style="margin: 0;"><strong>身體狀況：</strong> BMI {bmi} ({get_bmi_category(bmi)[0]})</p>
+                <p style="margin: 0;"><strong>心率：</strong> {current_hr} bpm</p>
+                <p style="margin: 0;"><strong>生活方式：</strong> {smoking_status}，{drinking_status}</p>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Filter diseases based on selected categories
+    filtered_diseases = []
+    for disease in diseases:
+        disease_category = DISEASE_TO_CATEGORY.get(disease)
+        if disease_category and category_filters.get(disease_category, False):
+            filtered_diseases.append(disease)
+    
+    if not filtered_diseases:
+        st.warning("請至少選擇一個疾病分類來進行分析。")
+        return
+    
+    # Calculate percentiles for filtered diseases
+    results = []
+    
+    for disease in filtered_diseases:
+        user_lp = calculate_linear_predictor(
+            disease, age, gender, current_hr, bmi, 
+            smoking_status, drinking_status, model_df
+        )
+        
+        if user_lp is not None:
+            percentile, exact_percentile = calculate_percentile_rank(
+                user_lp, disease, gender, age_group, percentile_df
+            )
+            
+            if percentile is not None:
+                risk_category, card_class, color = get_risk_category_and_color(percentile, disease)
+                results.append({
+                    'disease': disease,
+                    'percentile': percentile,
+                    'exact_percentile': exact_percentile,
+                    'risk_category': risk_category,
+                    'card_class': card_class,
+                    'color': color,
+                    'lp': user_lp,
+                    'category': DISEASE_TO_CATEGORY.get(disease, '其他')
+                })
+    
+    if results:
+        # Create risk summary statistics
+        risk_counts = {}
+        for result in results:
+            risk_category = result['risk_category']
+            risk_counts[risk_category] = risk_counts.get(risk_category, 0) + 1
+        
+        # Display aggregated statistics dashboard
+        st.markdown(f"""
+        <div class="stats-dashboard">
+            <h3 style="text-align: center; margin-bottom: 1.5rem; color: #2c3e50;">📈 風險評估摘要</h3>
+            <p style="text-align: center; color: #7f8c8d; margin-bottom: 2rem;">
+                針對 {len(results)} 種疾病與 {age_group} 歲{gender_chinese}進行分析比較
+            </p>
+        """, unsafe_allow_html=True)
+        
+        # Create statistics cards
+        col1, col2, col3, col4 = st.columns(4)
+        
+        # Count diseases in each risk level (now simplified since Death uses same categories)
+        high_risk = risk_counts.get('高風險', 0)
+        moderate_risk = risk_counts.get('中高風險', 0)
+        average_risk = risk_counts.get('平均風險', 0)
+        low_risk = risk_counts.get('低風險', 0)
+        
+        with col1:
+            st.markdown(f"""
+            <div class="stats-card high-risk">
+                <p class="stats-number">{high_risk}</p>
+                <p class="stats-label">高風險</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown(f"""
+            <div class="stats-card moderate-risk">
+                <p class="stats-number">{moderate_risk}</p>
+                <p class="stats-label">中高風險</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            st.markdown(f"""
+            <div class="stats-card average-risk">
+                <p class="stats-number">{average_risk}</p>
+                <p class="stats-label">平均風險</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col4:
+            st.markdown(f"""
+            <div class="stats-card low-risk">
+                <p class="stats-number">{low_risk}</p>
+                <p class="stats-label">低風險</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Create and display risk distribution chart
+        risk_chart = create_risk_summary_chart(risk_counts)
+        st.plotly_chart(risk_chart, use_container_width=True)
+        
+        # Sort results by percentile (highest risk first)
+        results.sort(key=lambda x: x['percentile'], reverse=True)
+        
+        # Group results by category and display
+        st.markdown("### 您的風險評估結果")
+        
+        # Get unique categories from results
+        categories_with_results = list(set([result['category'] for result in results]))
+        categories_with_results.sort()
+        
+        for category in categories_with_results:
+            category_results = [r for r in results if r['category'] == category]
+            
+            if category_results:
+                st.markdown(f'<div class="category-header">{category}</div>', unsafe_allow_html=True)
+                
+                # Display results in grid format
+                cols = st.columns(min(len(category_results), 4))
+                for i, result in enumerate(category_results):
+                    with cols[i % len(cols)]:
+                        # Create gauge chart
+                        fig = create_percentile_gauge(result['percentile'], result['disease'])
+                        st.plotly_chart(fig, use_container_width=True)
+                        
+                        # Risk interpretation in Chinese
+                        chinese_disease_name = DISEASE_CHINESE_NAMES.get(result['disease'], result['disease'])
+                        if result['percentile'] >= 90:
+                            interpretation = f"風險高於{result['percentile']}%的同年齡層同性別者"
+                            recommendation = "建議諮詢醫療專業人士"
+                        elif result['percentile'] >= 75:
+                            interpretation = f"風險高於{result['percentile']}%的同年齡層同性別者"
+                            recommendation = "密切監控，調整生活方式"
+                        elif result['percentile'] >= 50:
+                            interpretation = f"平均風險（高於{result['percentile']}%的人）"
+                            recommendation = "繼續保持健康習慣"
+                        else:
+                            interpretation = f"較低風險（高於{result['percentile']}%的人）"
+                            recommendation = "維持現有的生活方式"
+                        
+                        st.markdown(f"""
+                        <div class="{result['card_class']}">
+                            <h4>{chinese_disease_name}</h4>
+                            <div class="percentile-number">{result['percentile']}</div>
+                            <p>百分位數</p>
+                            <hr style="border-color: rgba(255,255,255,0.3);">
+                            <p style="font-size: 0.9rem;">{interpretation}</p>
+                            <p style="font-size: 0.8rem;"><em>{recommendation}</em></p>
+                            <p style="font-size: 0.7rem;">線性預測值: {result['lp']:.3f}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+        
+        # Detailed comparison table
+        st.markdown("### 詳細結果表格")
+        
+        comparison_df = pd.DataFrame({
+            '疾病': [DISEASE_CHINESE_NAMES.get(r['disease'], r['disease']) for r in results],
+            '分類': [r['category'] for r in results],
+            '您的百分位數': [f"{r['percentile']}" for r in results],
+            '線性預測值': [f"{r['lp']:.3f}" for r in results],
+            '風險等級': [r['risk_category'] for r in results],
+            '人口統計組': [f"{gender_chinese}, {age_group}" for _ in results]
+        })
+        
+        st.dataframe(comparison_df, use_container_width=True, hide_index=True)
+        
+        # Summary insights
+        st.markdown("### 💡 重點分析")
+        
+        total_conditions = len(results)
+        high_risk_conditions = [r for r in results if r['percentile'] >= 90]
+        moderate_risk_conditions = [r for r in results if 75 <= r['percentile'] < 90]
+        
+        if high_risk_conditions:
+            disease_names_chinese = [DISEASE_CHINESE_NAMES.get(r['disease'], r['disease']) for r in high_risk_conditions]
+            st.error(f"⚠️ **高優先級：** 您有{len(high_risk_conditions)}項疾病處於高風險類別（≥90百分位數）：{', '.join(disease_names_chinese)}")
+        
+        if moderate_risk_conditions:
+            disease_names_chinese = [DISEASE_CHINESE_NAMES.get(r['disease'], r['disease']) for r in moderate_risk_conditions]
+            st.warning(f"⚡ **密切監控：** 您有{len(moderate_risk_conditions)}項疾病處於中高風險類別（75-89百分位數）：{', '.join(disease_names_chinese)}")
+        
+        if not high_risk_conditions and not moderate_risk_conditions:
+            st.success(f"✅ **好消息：** 您評估的{total_conditions}項疾病均未落入高風險類別！")
+        
+        st.markdown("""
+        **注意：** 此計算器使用台灣生物資料庫的實際人口數據，以確定您計算的風險在同年齡層同性別群體中的位置。
+        線性預測值（LP）是使用Cox回歸係數計算得出，您的百分位數顯示在您的人口統計組中有多少比例的人風險比您低。
+        
+        **免責聲明：** 此工具僅供教育目的使用，不應取代專業醫療建議。
+        請諮詢醫療專業人士以獲得個人化的醫療指導。
+        """)
+    
+    else:
+        st.error("無法計算所選分類的風險百分位數。請檢查您的人口統計組是否有可用數據。")
+
+if __name__ == "__main__":
+    main()
