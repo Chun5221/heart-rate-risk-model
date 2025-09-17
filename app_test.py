@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Sep  1 10:09:19 2025
+Created on Wed Sep 17 09:05:00 2025
 
 @author: chun5
 """
@@ -12,10 +12,112 @@ import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 import math
+# === SQLite 資料庫小工具（貼在檔案前段，imports 之後）===
+from pathlib import Path
+import sqlite3, json, uuid, datetime as dt
+import re
+
+DB_PATH = Path(__file__).with_name("data").joinpath("app.db")
+
+def _get_conn():
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(DB_PATH)
+    # 改善同時讀寫穩定性
+    conn.execute("PRAGMA journal_mode=WAL;")
+    return conn
+
+def init_db():
+    """App 啟動時呼叫，沒有表就自動建立。"""
+    with _get_conn() as conn:
+        conn.execute("""
+        CREATE TABLE IF NOT EXISTS assessments (
+            id TEXT PRIMARY KEY,
+            created_at_utc TEXT NOT NULL,
+            user_id TEXT,                -- 先保留欄位，未來有登入再用
+            input_json TEXT NOT NULL,    -- 使用者輸入（性別、年齡、身高體重、心率…）
+            output_json TEXT NOT NULL    -- 模型輸出（風險、百分位、分級…）
+        )""")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_assessments_created ON assessments(created_at_utc DESC)")
+
+def save_assessment(inputs: dict, outputs: dict, user_id: str | None = None):
+    """儲存一筆評估紀錄。"""
+    with _get_conn() as conn:
+        conn.execute(
+            "INSERT INTO assessments (id, created_at_utc, user_id, input_json, output_json) VALUES (?,?,?,?,?)",
+            (
+                str(uuid.uuid4()),
+                dt.datetime.utcnow().isoformat(timespec="seconds") + "Z",
+                user_id,
+                json.dumps(inputs, ensure_ascii=False),
+                json.dumps(outputs, ensure_ascii=False),
+            ),
+        )
+
+# ===== 便利工具：從 main() 的區域變數自動抓取常見欄位 =====
+def _find_by_keys(locals_dict: dict, keys_like: list[str]):
+    """從 locals() 以不分大小寫地模糊比對鍵名；回傳第一個命中的值或 None。"""
+    lower_map = {k.lower(): k for k in locals_dict.keys()}
+    for pattern in keys_like:
+        regex = re.compile(pattern, flags=re.IGNORECASE)
+        for low, orig in lower_map.items():
+            if regex.search(low):
+                return locals_dict[orig]
+    return None
+
+def autodetect_inputs_from_locals(locals_dict: dict) -> dict:
+    """
+    盡量從 main() 的變數自動找出：性別、年齡、身高、體重、BMI、心率等。
+    你也可以存取不到就回傳 None；或在 main() 裡手動覆蓋。
+    """
+    gender  = _find_by_keys(locals_dict, [r"^gender$", r"sex", r"biological_?sex"])
+    age     = _find_by_keys(locals_dict, [r"^age$", r"age_years"])
+    height  = _find_by_keys(locals_dict, [r"height.*cm", r"^height$"])
+    weight  = _find_by_keys(locals_dict, [r"weight.*kg", r"^weight$"])
+    bmi     = _find_by_keys(locals_dict, [r"^bmi$", r"bmi_value", r"body.*mass.*index"])
+    hr      = _find_by_keys(locals_dict, [r"rest.*hr", r"^hr$", r"heart.?rate"])
+
+    lifestyle = {}
+    for key in ["smoking", "alcohol", "exercise", "activity", "sleep"]:
+        val = _find_by_keys(locals_dict, [key])
+        if val is not None:
+            lifestyle[key] = val
+
+    return {
+        "gender": gender,
+        "age": age,
+        "height_cm": height,
+        "weight_kg": weight,
+        "bmi": bmi,
+        "resting_hr": hr,
+        "lifestyle": lifestyle or None,
+    }
+
+def autodetect_outputs_from_locals(locals_dict: dict) -> dict:
+    """
+    嘗試抓常見輸出：各疾病風險、百分位、風險等級。找不到就給空 dict。
+    你也可以在 main() 內手動補上。
+    """
+    disease_risk_scores = _find_by_keys(locals_dict, [r"disease.*risk.*score", r"risk.*scores", r"risk.*dict"])
+    percentiles         = _find_by_keys(locals_dict, [r"percentile", r"pct_?", r"perc_?"])
+    risk_levels         = _find_by_keys(locals_dict, [r"risk.*level", r"risk.*grade", r"risk.*class"])
+
+    # 模型/係數版本（如果你有變數就抓；沒有就 None）
+    model_version       = _find_by_keys(locals_dict, [r"model.*version", r"coef.*version", r"version"])
+
+    out = {}
+    if disease_risk_scores is not None: out["disease_risk_scores"] = disease_risk_scores
+    if percentiles is not None:         out["percentiles"]         = percentiles
+    if risk_levels is not None:         out["risk_levels"]         = risk_levels
+    if model_version is not None:       out["model_version"]       = model_version
+    return out
+
+
+init_db()
+
 
 # Page configuration
 st.set_page_config(
-    page_title="❤️ Heart Rate Risk Percentile Calculator",
+    page_title="❤️ 個人化健康風險評估平台",
     page_icon="❤️",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -201,7 +303,7 @@ st.markdown("""
 
 # Disease categorization
 DISEASE_CATEGORIES = {
-    "Cardiovascular & Circulatory": [
+    "心血管及循環系統": [
         "Heart Failure",
         "Atrial Fibrillation", 
         "Cardiac Arrhythmia",
@@ -210,24 +312,45 @@ DISEASE_CATEGORIES = {
         "Atherosclerosis",
         "Hypertension"
     ],
-    "Metabolic & Endocrine": [
+    "代謝及內分泌": [
         "Type 2 Diabetes"
     ],
-    "Mental Health & Neurological": [
+    "精神健康及神經系統": [
         "Anxiety",
         "Depression", 
         "Dementia",
         "Migraine"
     ],
-    "Other Medical Conditions": [
+    "其他疾病": [
         "Chronic Kidney Disease",
         "Gastroesophageal Reflux Disease",
         "Anemias",
         "Asthma"
     ],
-    "Mortality Risk": [
+    "死亡風險": [
         "Death"
     ]
+}
+
+# Chinese disease names mapping
+DISEASE_CHINESE_NAMES = {
+    "Heart Failure": "心臟衰竭",
+    "Atrial Fibrillation": "心房顫動",
+    "Cardiac Arrhythmia": "心律不整",
+    "Ischemic Heart Disease": "缺血性心臟病",
+    "Ischemic Stroke": "缺血性中風",
+    "Atherosclerosis": "動脈粥狀硬化",
+    "Hypertension": "高血壓",
+    "Type 2 Diabetes": "第二型糖尿病",
+    "Anxiety": "焦慮症",
+    "Depression": "憂鬱症",
+    "Dementia": "失智症",
+    "Migraine": "偏頭痛",
+    "Chronic Kidney Disease": "慢性腎臟病",
+    "Gastroesophageal Reflux Disease": "胃食道逆流",
+    "Anemias": "貧血",
+    "Asthma": "氣喘",
+    "Death": "死亡"
 }
 
 # Flatten categories for reverse lookup
@@ -843,14 +966,14 @@ def load_percentile_data():
 def calculate_bmi(height, weight, height_unit, weight_unit):
     """Calculate BMI from height and weight with unit conversion"""
     try:
-        if height_unit == "cm":
+        if height_unit == "公分":
             height_m = height / 100
-        elif height_unit == "feet/inches":
+        elif height_unit == "英尺/英寸":
             height_m = height * 0.0254
         else:
             height_m = height
         
-        if weight_unit == "lbs":
+        if weight_unit == "磅":
             weight_kg = weight * 0.453592
         else:
             weight_kg = weight
@@ -864,13 +987,13 @@ def calculate_bmi(height, weight, height_unit, weight_unit):
 def get_bmi_category(bmi):
     """Categorize BMI according to the model's categories"""
     if bmi < 18.5:
-        return "Underweight", "#3498db"
+        return "體重過輕", "#3498db"
     elif bmi < 24:
-        return "Normal weight", "#27ae60"
+        return "正常體重", "#27ae60"
     elif bmi < 27:
-        return "Overweight", "#f39c12"
+        return "體重過重", "#f39c12"
     else:
-        return "Obese", "#e74c3c"
+        return "肥胖", "#e74c3c"
 
 def get_bmi_model_category(bmi):
     """Get BMI category for model calculation"""
@@ -946,21 +1069,21 @@ def calculate_linear_predictor(disease_name, age, gender, hr, bmi, smoking_statu
                 lp += float(bmi_coef.iloc[0]['Coef'])
         
         # Smoking Status
-        if smoking_status == 'Former Smoker':
+        if smoking_status == '曾經吸菸':
             smoke_coef = disease_coefs[disease_coefs['Variable'] == 'Ever_smoke']
             if not smoke_coef.empty and smoke_coef.iloc[0]['Coef'] != 'REF':
                 lp += float(smoke_coef.iloc[0]['Coef'])
-        elif smoking_status == 'Current Smoker':
+        elif smoking_status == '目前吸菸':
             smoke_coef = disease_coefs[disease_coefs['Variable'] == 'Now_smoke']
             if not smoke_coef.empty and smoke_coef.iloc[0]['Coef'] != 'REF':
                 lp += float(smoke_coef.iloc[0]['Coef'])
         
         # Drinking Status
-        if drinking_status == 'Former Drinker':
+        if drinking_status == '曾經飲酒':
             drink_coef = disease_coefs[disease_coefs['Variable'] == 'Ever_drink']
             if not drink_coef.empty and drink_coef.iloc[0]['Coef'] != 'REF':
                 lp += float(drink_coef.iloc[0]['Coef'])
-        elif drinking_status == 'Current Drinker':
+        elif drinking_status == '目前飲酒':
             drink_coef = disease_coefs[disease_coefs['Variable'] == 'Now_drink']
             if not drink_coef.empty and drink_coef.iloc[0]['Coef'] != 'REF':
                 lp += float(drink_coef.iloc[0]['Coef'])
@@ -968,7 +1091,7 @@ def calculate_linear_predictor(disease_name, age, gender, hr, bmi, smoking_statu
         return lp
     
     except Exception as e:
-        st.error(f"Error calculating LP for {disease_name}: {str(e)}")
+        st.error(f"計算 {disease_name} 的LP時發生錯誤: {str(e)}")
         return None
 
 def calculate_percentile_rank(user_lp, disease_name, gender, age_group, percentile_df):
@@ -1013,20 +1136,20 @@ def calculate_percentile_rank(user_lp, disease_name, gender, age_group, percenti
         return 100, 100
         
     except Exception as e:
-        st.error(f"Error calculating percentile: {str(e)}")
+        st.error(f"計算百分位數時發生錯誤: {str(e)}")
         return None, None
 
 def get_risk_category_and_color(percentile, disease_name=''):
     """Get risk category and color based on percentile"""
     # Use consistent risk categories for all diseases including Death
     if percentile >= 90:
-        return "High Risk", "high-risk-card", "#e74c3c"
+        return "高風險", "high-risk-card", "#e74c3c"
     elif percentile >= 75:
-        return "Moderate-High Risk", "moderate-risk-card", "#f39c12"
+        return "中高風險", "moderate-risk-card", "#f39c12"
     elif percentile >= 50:
-        return "Average Risk", "percentile-card", "#3498db"
+        return "平均風險", "percentile-card", "#3498db"
     else:
-        return "Lower Risk", "low-risk-card", "#27ae60"
+        return "低風險", "low-risk-card", "#27ae60"
 
 def create_percentile_gauge(percentile, disease_name):
     """Create a gauge chart showing percentile position"""
@@ -1040,7 +1163,9 @@ def create_percentile_gauge(percentile, disease_name):
     else:
         color = "#27ae60"
     
-    title_text = f"{disease_name}<br>Risk Percentile"
+    # Get Chinese disease name
+    chinese_name = DISEASE_CHINESE_NAMES.get(disease_name, disease_name)
+    title_text = f"{chinese_name}<br>風險百分位"
     steps = [
         {'range': [0, 50], 'color': "#d5f4e6"},
         {'range': [50, 75], 'color': "#ffeaa7"},
@@ -1073,10 +1198,10 @@ def create_risk_summary_chart(risk_counts):
     """Create a summary chart showing risk distribution"""
     # Define colors for each risk category (simplified since Death now uses same categories)
     colors = {
-        'High Risk': '#e74c3c',
-        'Moderate-High Risk': '#f39c12', 
-        'Average Risk': '#3498db',
-        'Lower Risk': '#27ae60'
+        '高風險': '#e74c3c',
+        '中高風險': '#f39c12', 
+        '平均風險': '#3498db',
+        '低風險': '#27ae60'
     }
     
     # Simplified risk counting since all diseases use the same categories
@@ -1097,9 +1222,9 @@ def create_risk_summary_chart(risk_counts):
     ])
     
     fig.update_layout(
-        title="Risk Distribution Summary",
-        xaxis_title="Risk Level",
-        yaxis_title="Number of Conditions",
+        title="風險分佈摘要",
+        xaxis_title="風險等級",
+        yaxis_title="疾病數量",
         height=400,
         margin=dict(l=20, r=20, t=60, b=20)
     )
@@ -1116,41 +1241,43 @@ def main():
     diseases = list(available_diseases)
     
     # Header
-    st.markdown('<h1 class="main-header">❤️ Heart Rate Risk Percentile Calculator</h1>', unsafe_allow_html=True)
-    st.markdown('<p style="text-align: center; font-size: 1.2rem; color: #7f8c8d;">Compare your risk to people in your demographic group using actual population data</p>', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-header">❤️ 個人化健康風險評估平台</h1>', unsafe_allow_html=True)
+    st.markdown('<p style="text-align: center; font-size: 1.2rem; color: #7f8c8d;">使用實際人口數據將您的風險與同年齡層性別相同的人群進行比較</p>', unsafe_allow_html=True)
     
     # Sidebar for inputs
     with st.sidebar:
-        st.markdown("### Your Information")
+        st.markdown("### 您的資訊")
         
-        age = st.slider("Age", 20, 90, 43, help="Your current age")
-        gender = st.selectbox("Gender", ["Male", "Female"], help="Biological sex")
+        age = st.slider("年齡", 20, 90, 43, help="您目前的年齡")
+        gender = st.selectbox("性別", ["Male", "Female"], 
+                            format_func=lambda x: "男性" if x == "Male" else "女性",
+                            help="生理性別")
         
         # Height and Weight Section
-        st.markdown("### Height & Weight")
+        st.markdown("### 身高體重")
         
         col1, col2 = st.columns(2)
         with col1:
-            height_unit = st.selectbox("Height unit", ["cm", "feet/inches", "meters"])
+            height_unit = st.selectbox("身高單位", ["公分", "英尺/英寸", "公尺"])
         with col2:
-            weight_unit = st.selectbox("Weight unit", ["kg", "lbs"])
+            weight_unit = st.selectbox("體重單位", ["公斤", "磅"])
         
         # Height input
-        if height_unit == "cm":
-            height = st.slider("Height (cm)", 100, 220, 170)
-        elif height_unit == "feet/inches":
-            feet = st.selectbox("Feet", list(range(3, 8)), index=2)
-            inches = st.selectbox("Inches", list(range(0, 12)), index=6) 
+        if height_unit == "公分":
+            height = st.slider("身高 (公分)", 100, 220, 170)
+        elif height_unit == "英尺/英寸":
+            feet = st.selectbox("英尺", list(range(3, 8)), index=2)
+            inches = st.selectbox("英寸", list(range(0, 12)), index=6) 
             height = feet * 12 + inches
-            st.write(f"Height: {feet}'{inches}\"")
+            st.write(f"身高: {feet}'{inches}\"")
         else:
-            height = st.slider("Height (m)", 1.0, 2.2, 1.7, step=0.01)
+            height = st.slider("身高 (公尺)", 1.0, 2.2, 1.7, step=0.01)
         
         # Weight input
-        if weight_unit == "kg":
-            weight = st.slider("Weight (kg)", 30, 200, 75)
+        if weight_unit == "公斤":
+            weight = st.slider("體重 (公斤)", 30, 200, 75)
         else:
-            weight = st.slider("Weight (lbs)", 66, 440, 165)
+            weight = st.slider("體重 (磅)", 66, 440, 165)
         
         # Calculate BMI
         calculated_bmi = calculate_bmi(height, weight, height_unit, weight_unit)
@@ -1159,60 +1286,61 @@ def main():
             bmi_category, bmi_color = get_bmi_category(calculated_bmi)
             st.markdown(f"""
             <div class="bmi-info">
-                <h4>Calculated BMI</h4>
+                <h4>計算的BMI</h4>
                 <p style="font-size: 1.2rem; font-weight: bold; color: {bmi_color};">
                     BMI: {calculated_bmi}
                 </p>
                 <p style="color: {bmi_color}; font-weight: bold;">
-                    Category: {bmi_category}
+                    分類: {bmi_category}
                 </p>
             </div>
             """, unsafe_allow_html=True)
             bmi = calculated_bmi
         else:
-            st.error("Could not calculate BMI")
+            st.error("無法計算BMI")
             bmi = 25.0
         
         # Heart rate
-        st.markdown("### Heart Rate")
-        current_hr = st.slider("Resting Heart Rate (bpm)", 40, 120, 72)
+        st.markdown("### 心率")
+        current_hr = st.slider("靜息心率 (bpm)", 40, 120, 72)
         
         # Lifestyle factors
-        st.markdown("### Lifestyle")
-        smoking_status = st.selectbox("Smoking Status", ["Never Smoker", "Former Smoker", "Current Smoker"])
-        drinking_status = st.selectbox("Drinking Status", ["Never Drinker", "Former Drinker", "Current Drinker"])
+        st.markdown("### 生活習慣")
+        smoking_status = st.selectbox("吸菸狀況", ["從未吸菸", "曾經吸菸", "目前吸菸"])
+        drinking_status = st.selectbox("飲酒狀況", ["從未飲酒", "曾經飲酒", "目前飲酒"])
         
         # Disease category filter
-        st.markdown("### Disease Categories")
-        st.markdown("Select which types of diseases to analyze:")
+        st.markdown("### 疾病分類")
+        st.markdown("選擇要分析的疾病類型：")
         
         category_filters = {}
         for category in DISEASE_CATEGORIES.keys():
             category_filters[category] = st.checkbox(
                 category, 
                 value=True,
-                help=f"Include {category.lower()} in analysis"
+                help=f"在分析中包含{category}"
             )
     
     # Determine user's demographic group
     age_group = get_age_group_for_percentile(age)
     
     # Enhanced profile section
+    gender_chinese = "女性" if gender == "Female" else "男性"
     st.markdown(f"""
     <div class="profile-info">
-        <h3>👤 Your Health Profile</h3>
+        <h3>👤 您的健康檔案</h3>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
             <div class="profile-detail">
-                <h4 style="margin: 0 0 0.5rem 0;">📊 Comparison Group</h4>
-                <p style="margin: 0; font-size: 1.1rem;"><strong>You are being compared to:</strong></p>
-                <p style="margin: 0.25rem 0; font-size: 1.3rem; font-weight: bold;">{gender}s aged {age_group} years</p>
+                <h4 style="margin: 0 0 0.5rem 0;">📊 比較群體</h4>
+                <p style="margin: 0; font-size: 1.1rem;"><strong>您的比較對象是：</strong></p>
+                <p style="margin: 0.25rem 0; font-size: 1.3rem; font-weight: bold;">{age_group} 歲的{gender_chinese}</p>
             </div>
             <div class="profile-detail">
-                <h4 style="margin: 0 0 0.5rem 0;">🏥 Your Details</h4>
-                <p style="margin: 0;"><strong>Age:</strong> {age} years old</p>
-                <p style="margin: 0;"><strong>Physical:</strong> BMI {bmi} ({get_bmi_category(bmi)[0]})</p>
-                <p style="margin: 0;"><strong>Heart Rate:</strong> {current_hr} bpm</p>
-                <p style="margin: 0;"><strong>Lifestyle:</strong> {smoking_status.replace('Never Smoker', 'Non-smoker')}, {drinking_status.replace('Never Drinker', 'Non-drinker')}</p>
+                <h4 style="margin: 0 0 0.5rem 0;">🥼 您的詳細資料</h4>
+                <p style="margin: 0;"><strong>年齡：</strong> {age} 歲</p>
+                <p style="margin: 0;"><strong>身體狀況：</strong> BMI {bmi} ({get_bmi_category(bmi)[0]})</p>
+                <p style="margin: 0;"><strong>心率：</strong> {current_hr} bpm</p>
+                <p style="margin: 0;"><strong>生活方式：</strong> {smoking_status}，{drinking_status}</p>
             </div>
         </div>
     </div>
@@ -1226,7 +1354,7 @@ def main():
             filtered_diseases.append(disease)
     
     if not filtered_diseases:
-        st.warning("Please select at least one disease category to analyze.")
+        st.warning("請至少選擇一個疾病分類來進行分析。")
         return
     
     # Calculate percentiles for filtered diseases
@@ -1253,7 +1381,7 @@ def main():
                     'card_class': card_class,
                     'color': color,
                     'lp': user_lp,
-                    'category': DISEASE_TO_CATEGORY.get(disease, 'Other')
+                    'category': DISEASE_TO_CATEGORY.get(disease, '其他')
                 })
     
     if results:
@@ -1266,9 +1394,9 @@ def main():
         # Display aggregated statistics dashboard
         st.markdown(f"""
         <div class="stats-dashboard">
-            <h3 style="text-align: center; margin-bottom: 1.5rem; color: #2c3e50;">📈 Risk Assessment Summary</h3>
+            <h3 style="text-align: center; margin-bottom: 1.5rem; color: #2c3e50;">📈 風險評估摘要</h3>
             <p style="text-align: center; color: #7f8c8d; margin-bottom: 2rem;">
-                Analysis of {len(results)} conditions compared to {gender.lower()}s aged {age_group}
+                針對 {len(results)} 種疾病與 {age_group} 歲{gender_chinese}進行分析比較
             </p>
         """, unsafe_allow_html=True)
         
@@ -1276,16 +1404,16 @@ def main():
         col1, col2, col3, col4 = st.columns(4)
         
         # Count diseases in each risk level (now simplified since Death uses same categories)
-        high_risk = sum([count for category, count in risk_counts.items() if 'High' in category and 'Moderate' not in category])
-        moderate_risk = sum([count for category, count in risk_counts.items() if 'Moderate' in category])
-        average_risk = sum([count for category, count in risk_counts.items() if 'Average' in category])
-        low_risk = sum([count for category, count in risk_counts.items() if 'Lower' in category or 'Low' in category])
+        high_risk = risk_counts.get('高風險', 0)
+        moderate_risk = risk_counts.get('中高風險', 0)
+        average_risk = risk_counts.get('平均風險', 0)
+        low_risk = risk_counts.get('低風險', 0)
         
         with col1:
             st.markdown(f"""
             <div class="stats-card high-risk">
                 <p class="stats-number">{high_risk}</p>
-                <p class="stats-label">High Risk</p>
+                <p class="stats-label">高風險</p>
             </div>
             """, unsafe_allow_html=True)
         
@@ -1293,7 +1421,7 @@ def main():
             st.markdown(f"""
             <div class="stats-card moderate-risk">
                 <p class="stats-number">{moderate_risk}</p>
-                <p class="stats-label">Moderate-High Risk</p>
+                <p class="stats-label">中高風險</p>
             </div>
             """, unsafe_allow_html=True)
         
@@ -1301,7 +1429,7 @@ def main():
             st.markdown(f"""
             <div class="stats-card average-risk">
                 <p class="stats-number">{average_risk}</p>
-                <p class="stats-label">Average Risk</p>
+                <p class="stats-label">平均風險</p>
             </div>
             """, unsafe_allow_html=True)
         
@@ -1309,7 +1437,7 @@ def main():
             st.markdown(f"""
             <div class="stats-card low-risk">
                 <p class="stats-number">{low_risk}</p>
-                <p class="stats-label">Lower Risk</p>
+                <p class="stats-label">低風險</p>
             </div>
             """, unsafe_allow_html=True)
         
@@ -1323,7 +1451,7 @@ def main():
         results.sort(key=lambda x: x['percentile'], reverse=True)
         
         # Group results by category and display
-        st.markdown("### Your Risk Assessment Results")
+        st.markdown("### 您的風險評估結果")
         
         # Get unique categories from results
         categories_with_results = list(set([result['category'] for result in results]))
@@ -1343,73 +1471,107 @@ def main():
                         fig = create_percentile_gauge(result['percentile'], result['disease'])
                         st.plotly_chart(fig, use_container_width=True)
                         
-                        # Risk interpretation
+                        # Risk interpretation in Chinese
+                        chinese_disease_name = DISEASE_CHINESE_NAMES.get(result['disease'], result['disease'])
                         if result['percentile'] >= 90:
-                            interpretation = f"Higher risk than {result['percentile']}% of your demographic"
-                            recommendation = "Consider medical consultation"
+                            interpretation = f"風險高於{result['percentile']}%的同年齡層同性別者"
+                            recommendation = "建議諮詢醫療專業人士"
                         elif result['percentile'] >= 75:
-                            interpretation = f"Higher risk than {result['percentile']}% of your demographic"
-                            recommendation = "Monitor closely, lifestyle changes"
+                            interpretation = f"風險高於{result['percentile']}%的同年齡層同性別者"
+                            recommendation = "密切監控，調整生活方式"
                         elif result['percentile'] >= 50:
-                            interpretation = f"Average risk (higher than {result['percentile']}%)"
-                            recommendation = "Continue healthy habits"
+                            interpretation = f"平均風險（高於{result['percentile']}%的人）"
+                            recommendation = "繼續保持健康習慣"
                         else:
-                            interpretation = f"Lower risk (higher than {result['percentile']}%)"
-                            recommendation = "Maintain current lifestyle"
+                            interpretation = f"較低風險（高於{result['percentile']}%的人）"
+                            recommendation = "維持現有的生活方式"
                         
                         st.markdown(f"""
                         <div class="{result['card_class']}">
-                            <h4>{result['disease']}</h4>
-                            <div class="percentile-number">{result['percentile']}th</div>
-                            <p>Percentile</p>
+                            <h4>{chinese_disease_name}</h4>
+                            <div class="percentile-number">{result['percentile']}</div>
+                            <p>百分位數</p>
                             <hr style="border-color: rgba(255,255,255,0.3);">
                             <p style="font-size: 0.9rem;">{interpretation}</p>
                             <p style="font-size: 0.8rem;"><em>{recommendation}</em></p>
-                            <p style="font-size: 0.7rem;">LP: {result['lp']:.3f}</p>
+                            <p style="font-size: 0.7rem;">線性預測值: {result['lp']:.3f}</p>
                         </div>
                         """, unsafe_allow_html=True)
         
         # Detailed comparison table
-        st.markdown("### Detailed Results Table")
+        st.markdown("### 詳細結果表格")
         
         comparison_df = pd.DataFrame({
-            'Disease': [r['disease'] for r in results],
-            'Category': [r['category'] for r in results],
-            'Your Percentile': [f"{r['percentile']}th" for r in results],
-            'Linear Predictor': [f"{r['lp']:.3f}" for r in results],
-            'Risk Level': [r['risk_category'] for r in results],
-            'Demographic Group': [f"{gender}, {age_group}" for _ in results]
+            '疾病': [DISEASE_CHINESE_NAMES.get(r['disease'], r['disease']) for r in results],
+            '分類': [r['category'] for r in results],
+            '您的百分位數': [f"{r['percentile']}" for r in results],
+            '線性預測值': [f"{r['lp']:.3f}" for r in results],
+            '風險等級': [r['risk_category'] for r in results],
+            '人口統計組': [f"{gender_chinese}, {age_group}" for _ in results]
         })
         
         st.dataframe(comparison_df, use_container_width=True, hide_index=True)
         
         # Summary insights
-        st.markdown("### 💡 Key Insights")
+        st.markdown("### 💡 重點分析")
         
         total_conditions = len(results)
         high_risk_conditions = [r for r in results if r['percentile'] >= 90]
         moderate_risk_conditions = [r for r in results if 75 <= r['percentile'] < 90]
         
         if high_risk_conditions:
-            st.error(f"⚠️ **High Priority:** You have {len(high_risk_conditions)} condition(s) in the high-risk category (≥90th percentile): {', '.join([r['disease'] for r in high_risk_conditions])}")
+            disease_names_chinese = [DISEASE_CHINESE_NAMES.get(r['disease'], r['disease']) for r in high_risk_conditions]
+            st.error(f"⚠️ **高優先級：** 您有{len(high_risk_conditions)}項疾病處於高風險類別（≥90百分位數）：{', '.join(disease_names_chinese)}")
         
         if moderate_risk_conditions:
-            st.warning(f"⚡ **Monitor Closely:** You have {len(moderate_risk_conditions)} condition(s) in the moderate-high risk category (75-89th percentile): {', '.join([r['disease'] for r in moderate_risk_conditions])}")
+            disease_names_chinese = [DISEASE_CHINESE_NAMES.get(r['disease'], r['disease']) for r in moderate_risk_conditions]
+            st.warning(f"⚡ **密切監控：** 您有{len(moderate_risk_conditions)}項疾病處於中高風險類別（75-89百分位數）：{', '.join(disease_names_chinese)}")
         
         if not high_risk_conditions and not moderate_risk_conditions:
-            st.success(f"✅ **Good News:** None of your {total_conditions} assessed conditions fall into high-risk categories!")
+            st.success(f"✅ **好消息：** 您評估的{total_conditions}項疾病均未落入高風險類別！")
         
         st.markdown("""
-        **Note:** This calculator uses actual population data from Taiwan Biobank to determine where your calculated risk falls 
-        within your demographic group (same age range and gender). The linear predictor (LP) is calculated using Cox regression 
-        coefficients, and your percentile shows what percentage of people in your demographic group have lower risk than you.
+        **注意：** 此計算器使用台灣生物資料庫的實際人口數據，以確定您計算的風險在同年齡層同性別群體中的位置。
+        線性預測值（LP）是使用Cox回歸係數計算得出，您的百分位數顯示在您的人口統計組中有多少比例的人風險比您低。
         
-        **Disclaimer:** This tool is for educational purposes only and should not replace professional medical advice. 
-        Please consult with healthcare professionals for personalized medical guidance.
+        **免責聲明：** 此工具僅供教育目的使用，不應取代專業醫療建議。
+        請諮詢醫療專業人士以獲得個人化的醫療指導。
         """)
+        
+        # 先自動偵測（不會報錯，抓不到會是 None）
+        _inputs_auto  = autodetect_inputs_from_locals(locals())
+        _outputs_auto = autodetect_outputs_from_locals(locals())
+    
+        # 可選：你可以用「實際的變數」覆蓋（如果你很確定名稱）
+        # 例：
+        # _inputs_auto["gender"]    = gender
+        # _inputs_auto["age"]       = age
+        # _inputs_auto["bmi"]       = bmi
+        # _inputs_auto["resting_hr"]= current_hr
+        # _outputs_auto["percentiles"] = risk_percentiles_dict
+        # _outputs_auto["risk_levels"] = risk_level_dict
+        # _outputs_auto["disease_risk_scores"] = disease_score_dict
+        # _outputs_auto["model_version"] = "v2025-09-01"
+        
+        
+        st.divider()
+        if st.button("💾 儲存這次評估"):
+            try:
+                save_assessment(_inputs_auto, _outputs_auto, user_id=None)  # 之後有登入再傳 user_id
+                st.success("已儲存！")
+            except Exception as e:
+                st.error(f"儲存失敗：{e}")
+    
+        # （選擇性）除錯用：看最近 5 筆
+        with st.expander("🔍 最近 5 筆儲存紀錄（除錯用）"):
+            with _get_conn() as _c:
+                rows = _c.execute(
+                    "SELECT id, created_at_utc, substr(input_json,1,60)||'…' AS input_preview FROM assessments ORDER BY created_at_utc DESC LIMIT 5"
+                ).fetchall()
+            st.write(rows)
     
     else:
-        st.error("Could not calculate risk percentiles for the selected categories. Please check that data is available for your demographic group.")
+        st.error("無法計算所選分類的風險百分位數。請檢查您的人口統計組是否有可用數據。")
 
 if __name__ == "__main__":
     main()
