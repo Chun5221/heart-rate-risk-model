@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Sep 17 09:05:00 2025
+Created on Thu Sep  4 08:56:08 2025
 
 @author: chun5
 """
@@ -12,107 +12,12 @@ import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 import math
-# === SQLite 資料庫小工具（貼在檔案前段，imports 之後）===
+
+import os, json, datetime
 from pathlib import Path
-import sqlite3, json, uuid, datetime as dt
-import re
 
-DB_PATH = Path(__file__).with_name("data").joinpath("app.db")
-
-def _get_conn():
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    # 改善同時讀寫穩定性
-    conn.execute("PRAGMA journal_mode=WAL;")
-    return conn
-
-def init_db():
-    """App 啟動時呼叫，沒有表就自動建立。"""
-    with _get_conn() as conn:
-        conn.execute("""
-        CREATE TABLE IF NOT EXISTS assessments (
-            id TEXT PRIMARY KEY,
-            created_at_utc TEXT NOT NULL,
-            user_id TEXT,                -- 先保留欄位，未來有登入再用
-            input_json TEXT NOT NULL,    -- 使用者輸入（性別、年齡、身高體重、心率…）
-            output_json TEXT NOT NULL    -- 模型輸出（風險、百分位、分級…）
-        )""")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_assessments_created ON assessments(created_at_utc DESC)")
-
-def save_assessment(inputs: dict, outputs: dict, user_id: str | None = None):
-    """儲存一筆評估紀錄。"""
-    with _get_conn() as conn:
-        conn.execute(
-            "INSERT INTO assessments (id, created_at_utc, user_id, input_json, output_json) VALUES (?,?,?,?,?)",
-            (
-                str(uuid.uuid4()),
-                dt.datetime.utcnow().isoformat(timespec="seconds") + "Z",
-                user_id,
-                json.dumps(inputs, ensure_ascii=False),
-                json.dumps(outputs, ensure_ascii=False),
-            ),
-        )
-
-# ===== 便利工具：從 main() 的區域變數自動抓取常見欄位 =====
-def _find_by_keys(locals_dict: dict, keys_like: list[str]):
-    """從 locals() 以不分大小寫地模糊比對鍵名；回傳第一個命中的值或 None。"""
-    lower_map = {k.lower(): k for k in locals_dict.keys()}
-    for pattern in keys_like:
-        regex = re.compile(pattern, flags=re.IGNORECASE)
-        for low, orig in lower_map.items():
-            if regex.search(low):
-                return locals_dict[orig]
-    return None
-
-def autodetect_inputs_from_locals(locals_dict: dict) -> dict:
-    """
-    盡量從 main() 的變數自動找出：性別、年齡、身高、體重、BMI、心率等。
-    你也可以存取不到就回傳 None；或在 main() 裡手動覆蓋。
-    """
-    gender  = _find_by_keys(locals_dict, [r"^gender$", r"sex", r"biological_?sex"])
-    age     = _find_by_keys(locals_dict, [r"^age$", r"age_years"])
-    height  = _find_by_keys(locals_dict, [r"height.*cm", r"^height$"])
-    weight  = _find_by_keys(locals_dict, [r"weight.*kg", r"^weight$"])
-    bmi     = _find_by_keys(locals_dict, [r"^bmi$", r"bmi_value", r"body.*mass.*index"])
-    hr      = _find_by_keys(locals_dict, [r"rest.*hr", r"^hr$", r"heart.?rate"])
-
-    lifestyle = {}
-    for key in ["smoking", "alcohol", "exercise", "activity", "sleep"]:
-        val = _find_by_keys(locals_dict, [key])
-        if val is not None:
-            lifestyle[key] = val
-
-    return {
-        "gender": gender,
-        "age": age,
-        "height_cm": height,
-        "weight_kg": weight,
-        "bmi": bmi,
-        "resting_hr": hr,
-        "lifestyle": lifestyle or None,
-    }
-
-def autodetect_outputs_from_locals(locals_dict: dict) -> dict:
-    """
-    嘗試抓常見輸出：各疾病風險、百分位、風險等級。找不到就給空 dict。
-    你也可以在 main() 內手動補上。
-    """
-    disease_risk_scores = _find_by_keys(locals_dict, [r"disease.*risk.*score", r"risk.*scores", r"risk.*dict"])
-    percentiles         = _find_by_keys(locals_dict, [r"percentile", r"pct_?", r"perc_?"])
-    risk_levels         = _find_by_keys(locals_dict, [r"risk.*level", r"risk.*grade", r"risk.*class"])
-
-    # 模型/係數版本（如果你有變數就抓；沒有就 None）
-    model_version       = _find_by_keys(locals_dict, [r"model.*version", r"coef.*version", r"version"])
-
-    out = {}
-    if disease_risk_scores is not None: out["disease_risk_scores"] = disease_risk_scores
-    if percentiles is not None:         out["percentiles"]         = percentiles
-    if risk_levels is not None:         out["risk_levels"]         = risk_levels
-    if model_version is not None:       out["model_version"]       = model_version
-    return out
-
-
-init_db()
+LOG_DIR = Path("data")
+LOG_FILE = LOG_DIR / "user_records.csv"
 
 
 # Page configuration
@@ -963,6 +868,31 @@ def load_percentile_data():
     
     return df
 
+def save_record_to_csv(user_inputs: dict, results: dict, extra: dict = None):
+    """
+    將一次使用紀錄寫入 CSV。
+    - user_inputs: 使用者輸入（年齡、性別、BMI、心率、吸菸、飲酒…）
+    - results: 計算出的結果（每個疾病的 LP、percentile、risk_level）
+    - extra: 其他想補充的欄位（例如 session_id 或版本）
+    """
+    import pandas as pd
+
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # 將每個疾病的結果壓成 JSON (避免欄位爆炸；若想展開成寬表，見下面「進階：寬表欄位」)
+    row = {
+        "timestamp": timestamp,
+        **user_inputs,
+        "results_json": json.dumps(results, ensure_ascii=False),
+    }
+    if extra:
+        row.update(extra)
+
+    df = pd.DataFrame([row])
+    header_needed = not LOG_FILE.exists()
+    df.to_csv(LOG_FILE, mode="a", index=False, header=header_needed, encoding="utf-8-sig")
+
 def calculate_bmi(height, weight, height_unit, weight_unit):
     """Calculate BMI from height and weight with unit conversion"""
     try:
@@ -1320,7 +1250,9 @@ def main():
                 value=True,
                 help=f"在分析中包含{category}"
             )
-    
+        
+        log_consent = st.sidebar.checkbox("同意儲存本次使用紀錄（輸入與計算結果）", value=True)
+        
     # Determine user's demographic group
     age_group = get_age_group_for_percentile(age)
     
@@ -1384,6 +1316,19 @@ def main():
                     'category': DISEASE_TO_CATEGORY.get(disease, '其他')
                 })
     
+    # 將 list-of-dicts -> dict keyed by disease
+    results_dict = {}
+    for r in results:
+        dkey = r['disease']
+        results_dict[dkey] = {
+            "lp": float(r['lp']),
+            "percentile": float(r['percentile']),
+            "exact_percentile": float(r.get('exact_percentile', r['percentile'])),
+            "risk_level": str(r['risk_category']),
+            "category": str(r.get('category', '其他')),
+        }
+
+
     if results:
         # Create risk summary statistics
         risk_counts = {}
@@ -1537,41 +1482,29 @@ def main():
         **免責聲明：** 此工具僅供教育目的使用，不應取代專業醫療建議。
         請諮詢醫療專業人士以獲得個人化的醫療指導。
         """)
-        
-        # 先自動偵測（不會報錯，抓不到會是 None）
-        _inputs_auto  = autodetect_inputs_from_locals(locals())
-        _outputs_auto = autodetect_outputs_from_locals(locals())
-    
-        # 可選：你可以用「實際的變數」覆蓋（如果你很確定名稱）
-        # 例：
-        # _inputs_auto["gender"]    = gender
-        # _inputs_auto["age"]       = age
-        # _inputs_auto["bmi"]       = bmi
-        # _inputs_auto["resting_hr"]= current_hr
-        # _outputs_auto["percentiles"] = risk_percentiles_dict
-        # _outputs_auto["risk_levels"] = risk_level_dict
-        # _outputs_auto["disease_risk_scores"] = disease_score_dict
-        # _outputs_auto["model_version"] = "v2025-09-01"
-        
-        
-        st.divider()
-        if st.button("💾 儲存這次評估"):
-            try:
-                save_assessment(_inputs_auto, _outputs_auto, user_id=None)  # 之後有登入再傳 user_id
-                st.success("已儲存！")
-            except Exception as e:
-                st.error(f"儲存失敗：{e}")
-    
-        # （選擇性）除錯用：看最近 5 筆
-        with st.expander("🔍 最近 5 筆儲存紀錄（除錯用）"):
-            with _get_conn() as _c:
-                rows = _c.execute(
-                    "SELECT id, created_at_utc, substr(input_json,1,60)||'…' AS input_preview FROM assessments ORDER BY created_at_utc DESC LIMIT 5"
-                ).fetchall()
-            st.write(rows)
     
     else:
         st.error("無法計算所選分類的風險百分位數。請檢查您的人口統計組是否有可用數據。")
+    
+    # 視你的實際變數名稱調整
+    user_inputs = {
+        "gender": str(gender),
+        "age": int(age),
+        "height_cm": float(height),
+        "weight_kg": float(weight),
+        "bmi": float(bmi),
+        "resting_hr": int(current_hr),
+        "smoking": str(smoking_status),     # 若想布林化可自行轉換
+        "drinking": str(drinking_status),
+    }
+    
+    if log_consent and len(results_dict) > 0:
+        try:
+            save_record_to_csv(user_inputs=user_inputs, results=results_dict, extra={"app_version": "v1.0"})
+            st.sidebar.success("✅ 已儲存本次使用紀錄到 data/user_records.csv")
+        except Exception as e:
+            st.sidebar.error(f"⚠️ 紀錄寫入失敗：{e}")
+
 
 if __name__ == "__main__":
     main()
