@@ -13,6 +13,48 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 import math
 
+
+import os
+from pathlib import Path
+from datetime import datetime
+import uuid
+from filelock import FileLock, Timeout
+
+# ---- 設定你的本機儲存資料夾（Windows 路徑建議用 r'' 原始字串）----
+DATA_DIR = Path(r"D:\110826\SRB(原智慧長照)\SRB\SRB計畫-資料分析\心率風險互動平台\DATA")
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+# 每日一檔：usage_log_YYYYMMDD.csv
+def _get_daily_log_path():
+    day = datetime.now().strftime("%Y%m%d")
+    return DATA_DIR / f"usage_log_{day}.csv"
+
+# 產生/取得匿名 session_id（整個瀏覽期間固定）
+def get_or_create_session_id():
+    ss = st.session_state
+    if "session_id" not in ss:
+        ss.session_id = str(uuid.uuid4())
+    return ss.session_id
+
+# 寫入（追加）一批結果（每個疾病一列）到當日 CSV，使用檔案鎖避免同時寫入衝突
+def append_usage_records(rows: list[dict]):
+    log_path = _get_daily_log_path()
+    lock_path = str(log_path) + ".lock"
+    lock = FileLock(lock_path)
+
+    # 轉成 DataFrame
+    df = pd.DataFrame(rows)
+
+    # 檢查檔案是否已存在，決定是否寫 header
+    write_header = not log_path.exists()
+
+    try:
+        with lock.acquire(timeout=10):  # 最多等待 10 秒取得鎖
+            # 以追加模式寫入
+            df.to_csv(log_path, mode="a", index=False, encoding="utf-8-sig", header=write_header)
+    except Timeout:
+        st.error("目前有其他寫入作業進行中，請稍後再試一次。")
+
 # Page configuration
 st.set_page_config(
     page_title="❤️ 個人化健康風險評估平台",
@@ -1340,6 +1382,41 @@ def main():
                 })
     
     if results:
+        # === 新增：把一次提交的輸入 & 各疾病輸出，整理成「多列」 ===
+        session_id = get_or_create_session_id()
+        now_iso = datetime.now().isoformat(timespec="seconds")
+    
+        base_info = {
+            "timestamp_iso": now_iso,
+            "session_id": session_id,
+            "age": age,
+            "gender": gender,
+            "height_unit": height_unit,
+            "weight_unit": weight_unit,
+            "height": height,
+            "weight": weight,
+            "bmi": bmi,
+            "hr": current_hr,
+            "smoking": smoking_status,
+            "drinking": drinking_status,
+            "age_group": age_group,
+        }
+    
+        # 每個疾病一列，方便後續分析彙整
+        rows = []
+        for r in results:
+            rows.append({
+                **base_info,
+                "disease": r["disease"],
+                "percentile": r["percentile"],
+                "exact_percentile": r["exact_percentile"],
+                "lp": round(r["lp"], 6),
+                "risk_category": r["risk_category"],
+                "category": r["category"],
+            })
+    
+        append_usage_records(rows)
+        
         # Create risk summary statistics
         risk_counts = {}
         for result in results:
