@@ -13,13 +13,6 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 import math
 
-import os, json, datetime
-from pathlib import Path
-
-LOG_DIR = Path("data")
-LOG_FILE = LOG_DIR / "user_records.csv"
-
-
 # Page configuration
 st.set_page_config(
     page_title="❤️ 個人化健康風險評估平台",
@@ -868,31 +861,6 @@ def load_percentile_data():
     
     return df
 
-def save_record_to_csv(user_inputs: dict, results: dict, extra: dict = None):
-    """
-    將一次使用紀錄寫入 CSV。
-    - user_inputs: 使用者輸入（年齡、性別、BMI、心率、吸菸、飲酒…）
-    - results: 計算出的結果（每個疾病的 LP、percentile、risk_level）
-    - extra: 其他想補充的欄位（例如 session_id 或版本）
-    """
-    import pandas as pd
-
-    LOG_DIR.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    # 將每個疾病的結果壓成 JSON (避免欄位爆炸；若想展開成寬表，見下面「進階：寬表欄位」)
-    row = {
-        "timestamp": timestamp,
-        **user_inputs,
-        "results_json": json.dumps(results, ensure_ascii=False),
-    }
-    if extra:
-        row.update(extra)
-
-    df = pd.DataFrame([row])
-    header_needed = not LOG_FILE.exists()
-    df.to_csv(LOG_FILE, mode="a", index=False, header=header_needed, encoding="utf-8-sig")
-
 def calculate_bmi(height, weight, height_unit, weight_unit):
     """Calculate BMI from height and weight with unit conversion"""
     try:
@@ -1174,85 +1142,140 @@ def main():
     st.markdown('<h1 class="main-header">❤️ 個人化健康風險評估平台</h1>', unsafe_allow_html=True)
     st.markdown('<p style="text-align: center; font-size: 1.2rem; color: #7f8c8d;">使用實際人口數據將您的風險與同年齡層性別相同的人群進行比較</p>', unsafe_allow_html=True)
     
-    # Sidebar for inputs
+    # Sidebar for inputs  👉 改為 form：只有按「確定」才提交
     with st.sidebar:
         st.markdown("### 您的資訊")
-        
-        age = st.slider("年齡", 20, 90, 43, help="您目前的年齡")
-        gender = st.selectbox("性別", ["Male", "Female"], 
-                            format_func=lambda x: "男性" if x == "Male" else "女性",
-                            help="生理性別")
-        
-        # Height and Weight Section
-        st.markdown("### 身高體重")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            height_unit = st.selectbox("身高單位", ["公分", "英尺/英寸", "公尺"])
-        with col2:
-            weight_unit = st.selectbox("體重單位", ["公斤", "磅"])
-        
-        # Height input
-        if height_unit == "公分":
-            height = st.slider("身高 (公分)", 100, 220, 170)
-        elif height_unit == "英尺/英寸":
-            feet = st.selectbox("英尺", list(range(3, 8)), index=2)
-            inches = st.selectbox("英寸", list(range(0, 12)), index=6) 
-            height = feet * 12 + inches
-            st.write(f"身高: {feet}'{inches}\"")
-        else:
-            height = st.slider("身高 (公尺)", 1.0, 2.2, 1.7, step=0.01)
-        
-        # Weight input
-        if weight_unit == "公斤":
-            weight = st.slider("體重 (公斤)", 30, 200, 75)
-        else:
-            weight = st.slider("體重 (磅)", 66, 440, 165)
-        
-        # Calculate BMI
-        calculated_bmi = calculate_bmi(height, weight, height_unit, weight_unit)
-        
-        if calculated_bmi:
-            bmi_category, bmi_color = get_bmi_category(calculated_bmi)
-            st.markdown(f"""
-            <div class="bmi-info">
-                <h4>計算的BMI</h4>
-                <p style="font-size: 1.2rem; font-weight: bold; color: {bmi_color};">
-                    BMI: {calculated_bmi}
-                </p>
-                <p style="color: {bmi_color}; font-weight: bold;">
-                    分類: {bmi_category}
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
-            bmi = calculated_bmi
-        else:
-            st.error("無法計算BMI")
-            bmi = 25.0
-        
-        # Heart rate
-        st.markdown("### 心率")
-        current_hr = st.slider("靜息心率 (bpm)", 40, 120, 72)
-        
-        # Lifestyle factors
-        st.markdown("### 生活習慣")
-        smoking_status = st.selectbox("吸菸狀況", ["從未吸菸", "曾經吸菸", "目前吸菸"])
-        drinking_status = st.selectbox("飲酒狀況", ["從未飲酒", "曾經飲酒", "目前飲酒"])
-        
-        # Disease category filter
-        st.markdown("### 疾病分類")
-        st.markdown("選擇要分析的疾病類型：")
-        
-        category_filters = {}
-        for category in DISEASE_CATEGORIES.keys():
-            category_filters[category] = st.checkbox(
-                category, 
-                value=True,
-                help=f"在分析中包含{category}"
+    
+        # 用 session_state 保存「已提交」的值（第一次載入給預設）
+        ss = st.session_state
+        if "committed" not in ss:
+            ss.committed = {
+                "age": 43,
+                "gender": "Male",
+                "height_unit": "公分",
+                "weight_unit": "公斤",
+                "height": 170,   # 公分或公尺或英吋，依單位而異
+                "weight": 75,    # 公斤或磅
+                "current_hr": 72,
+                "smoking_status": "從未吸菸",
+                "drinking_status": "從未飲酒",
+                "category_filters": {k: True for k in DISEASE_CATEGORIES.keys()}
+            }
+    
+        # 建表單：只有按下提交才更新 ss.committed
+        with st.form("user_inputs", clear_on_submit=False):
+            age = st.slider("年齡", 20, 90, ss.committed["age"], help="您目前的年齡")
+    
+            gender = st.selectbox(
+                "性別", ["Male", "Female"],
+                index=(0 if ss.committed["gender"] == "Male" else 1),
+                format_func=lambda x: "男性" if x == "Male" else "女性",
+                help="生理性別"
             )
-        
-        log_consent = st.sidebar.checkbox("同意儲存本次使用紀錄（輸入與計算結果）", value=True)
-        
+    
+            st.markdown("### 身高體重")
+            col1, col2 = st.columns(2)
+            with col1:
+                height_unit = st.selectbox(
+                    "身高單位", ["公分", "英尺/英寸", "公尺"],
+                    index=["公分","英尺/英寸","公尺"].index(ss.committed["height_unit"])
+                )
+            with col2:
+                weight_unit = st.selectbox(
+                    "體重單位", ["公斤", "磅"],
+                    index=(0 if ss.committed["weight_unit"] == "公斤" else 1)
+                )
+    
+            # 身高輸入（依單位）
+            if height_unit == "公分":
+                height = st.slider("身高 (公分)", 100, 220, int(ss.committed["height"]) if ss.committed["height_unit"]=="公分" else 170)
+            elif height_unit == "英尺/英寸":
+                # 若之前是英吋，轉回 feet/inches 的預設顯示；這裡簡化為固定起始 5'6"
+                feet = st.selectbox("英尺", list(range(3, 8)), index=2)
+                inches = st.selectbox("英寸", list(range(0, 12)), index=6)
+                height = feet * 12 + inches  # 以總英吋存
+                st.write(f"身高: {feet}'{inches}\"")
+            else:
+                height = st.slider("身高 (公尺)", 1.0, 2.2, float(ss.committed["height"]) if ss.committed["height_unit"]=="公尺" else 1.7, step=0.01)
+    
+            # 體重輸入
+            if weight_unit == "公斤":
+                weight = st.slider("體重 (公斤)", 30, 200, int(ss.committed["weight"]) if ss.committed["weight_unit"]=="公斤" else 75)
+            else:
+                weight = st.slider("體重 (磅)", 66, 440, int(ss.committed["weight"]) if ss.committed["weight_unit"]=="磅" else 165)
+    
+            # 預覽 BMI（僅表單內即時計算、未提交不會更新儀表板）
+            preview_bmi = calculate_bmi(height, weight, height_unit, weight_unit)
+            if preview_bmi:
+                bmi_category, bmi_color = get_bmi_category(preview_bmi)
+                st.markdown(f"""
+                <div class="bmi-info">
+                    <h4>（預覽）計算的BMI</h4>
+                    <p style="font-size: 1.2rem; font-weight: bold; color: {bmi_color};">
+                        BMI: {preview_bmi}
+                    </p>
+                    <p style="color: {bmi_color}; font-weight: bold;">
+                        分類: {bmi_category}
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
+    
+            st.markdown("### 心率")
+            current_hr = st.slider("靜息心率 (bpm)", 40, 120, ss.committed["current_hr"])
+    
+            st.markdown("### 生活習慣")
+            smoking_status = st.selectbox(
+                "吸菸狀況", ["從未吸菸", "曾經吸菸", "目前吸菸"],
+                index=["從未吸菸","曾經吸菸","目前吸菸"].index(ss.committed["smoking_status"])
+            )
+            drinking_status = st.selectbox(
+                "飲酒狀況", ["從未飲酒", "曾經飲酒", "目前飲酒"],
+                index=["從未飲酒","曾經飲酒","目前飲酒"].index(ss.committed["drinking_status"])
+            )
+    
+            st.markdown("### 疾病分類")
+            st.markdown("選擇要分析的疾病類型：")
+            category_filters_tmp = {}
+            for category in DISEASE_CATEGORIES.keys():
+                category_filters_tmp[category] = st.checkbox(
+                    category,
+                    value=ss.committed["category_filters"].get(category, True),
+                    help=f"在分析中包含{category}"
+                )
+    
+            submitted = st.form_submit_button("✅ 確定（更新儀表板）")
+    
+        # 只有在提交時才「更新已提交的值」
+        if submitted:
+            ss.committed.update({
+                "age": age,
+                "gender": gender,
+                "height_unit": height_unit,
+                "weight_unit": weight_unit,
+                "height": height,
+                "weight": weight,
+                "current_hr": current_hr,
+                "smoking_status": smoking_status,
+                "drinking_status": drinking_status,
+                "category_filters": category_filters_tmp
+            })
+    
+    # 從已提交的值讀取，下面所有顯示與計算都用 committed 值
+    age = ss.committed["age"]
+    gender = ss.committed["gender"]
+    height_unit = ss.committed["height_unit"]
+    weight_unit = ss.committed["weight_unit"]
+    height = ss.committed["height"]
+    weight = ss.committed["weight"]
+    current_hr = ss.committed["current_hr"]
+    smoking_status = ss.committed["smoking_status"]
+    drinking_status = ss.committed["drinking_status"]
+    category_filters = ss.committed["category_filters"]
+    
+    # 用「已提交」的值計算 BMI
+    bmi = calculate_bmi(height, weight, height_unit, weight_unit) or 25.0
+
+    
     # Determine user's demographic group
     age_group = get_age_group_for_percentile(age)
     
@@ -1316,19 +1339,6 @@ def main():
                     'category': DISEASE_TO_CATEGORY.get(disease, '其他')
                 })
     
-    # 將 list-of-dicts -> dict keyed by disease
-    results_dict = {}
-    for r in results:
-        dkey = r['disease']
-        results_dict[dkey] = {
-            "lp": float(r['lp']),
-            "percentile": float(r['percentile']),
-            "exact_percentile": float(r.get('exact_percentile', r['percentile'])),
-            "risk_level": str(r['risk_category']),
-            "category": str(r.get('category', '其他')),
-        }
-
-
     if results:
         # Create risk summary statistics
         risk_counts = {}
@@ -1485,26 +1495,6 @@ def main():
     
     else:
         st.error("無法計算所選分類的風險百分位數。請檢查您的人口統計組是否有可用數據。")
-    
-    # 視你的實際變數名稱調整
-    user_inputs = {
-        "gender": str(gender),
-        "age": int(age),
-        "height_cm": float(height),
-        "weight_kg": float(weight),
-        "bmi": float(bmi),
-        "resting_hr": int(current_hr),
-        "smoking": str(smoking_status),     # 若想布林化可自行轉換
-        "drinking": str(drinking_status),
-    }
-    
-    if log_consent and len(results_dict) > 0:
-        try:
-            save_record_to_csv(user_inputs=user_inputs, results=results_dict, extra={"app_version": "v1.0"})
-            st.sidebar.success("✅ 已儲存本次使用紀錄到 data/user_records.csv")
-        except Exception as e:
-            st.sidebar.error(f"⚠️ 紀錄寫入失敗：{e}")
-
 
 if __name__ == "__main__":
     main()
