@@ -42,18 +42,21 @@ def append_usage_records(rows: list[dict]):
     lock_path = str(log_path) + ".lock"
     lock = FileLock(lock_path)
 
-    # 轉成 DataFrame
     df = pd.DataFrame(rows)
-
-    # 檢查檔案是否已存在，決定是否寫 header
     write_header = not log_path.exists()
 
     try:
-        with lock.acquire(timeout=10):  # 最多等待 10 秒取得鎖
-            # 以追加模式寫入
-            df.to_csv(log_path, mode="a", index=False, encoding="utf-8-sig", header=write_header)
+        # 正確的 acquire / release 用法（可設定 timeout）
+        lock.acquire(timeout=10)
+        df.to_csv(log_path, mode="a", index=False, encoding="utf-8-sig", header=write_header)
     except Timeout:
         st.error("目前有其他寫入作業進行中，請稍後再試一次。")
+    except Exception as e:
+        st.error(f"寫入紀錄檔發生錯誤：{e}")
+    finally:
+        # 確保釋放鎖
+        if lock.is_locked:
+            lock.release()
 
 # Page configuration
 st.set_page_config(
@@ -1416,6 +1419,9 @@ def main():
             })
     
         append_usage_records(rows)
+        
+        st.success(f"✅ 已寫入：{_get_daily_log_path()}")
+        
         
         # Create risk summary statistics
         risk_counts = {}
