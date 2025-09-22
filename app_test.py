@@ -13,50 +13,22 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 import math
 
-
-import os
-from pathlib import Path
-from datetime import datetime
+from supabase import create_client, Client
 import uuid
-from filelock import FileLock, Timeout
+from datetime import datetime, timezone, timedelta
 
-# ---- 設定你的本機儲存資料夾（Windows 路徑建議用 r'' 原始字串）----
-DATA_DIR = Path(r"D:\110826\SRB(原智慧長照)\SRB\SRB計畫-資料分析\心率風險互動平台\DATA")
-DATA_DIR.mkdir(parents=True, exist_ok=True)
+# 初始化 Supabase Client（用 anon key 寫入）
+SUPABASE_URL = st.secrets["supabase"]["url"]
+SUPABASE_ANON_KEY = st.secrets["supabase"]["anon_key"]
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
-# 每日一檔：usage_log_YYYYMMDD.csv
-def _get_daily_log_path():
-    day = datetime.now().strftime("%Y%m%d")
-    return DATA_DIR / f"usage_log_{day}.csv"
+# 產生一個 session_id（每次重開頁面或重新評估都可共用）
+if "session_id" not in st.session_state:
+    st.session_state["session_id"] = str(uuid.uuid4())
 
-# 產生/取得匿名 session_id（整個瀏覽期間固定）
-def get_or_create_session_id():
-    ss = st.session_state
-    if "session_id" not in ss:
-        ss.session_id = str(uuid.uuid4())
-    return ss.session_id
+APP_VERSION = "app_percentage_tw.py-2025-09-04"
+MODEL_VERSION = "coef:2025-09-04; pct:2025-08-29"
 
-# 寫入（追加）一批結果（每個疾病一列）到當日 CSV，使用檔案鎖避免同時寫入衝突
-def append_usage_records(rows: list[dict]):
-    log_path = _get_daily_log_path()
-    lock_path = str(log_path) + ".lock"
-    lock = FileLock(lock_path)
-
-    df = pd.DataFrame(rows)
-    write_header = not log_path.exists()
-
-    try:
-        # 正確的 acquire / release 用法（可設定 timeout）
-        lock.acquire(timeout=10)
-        df.to_csv(log_path, mode="a", index=False, encoding="utf-8-sig", header=write_header)
-    except Timeout:
-        st.error("目前有其他寫入作業進行中，請稍後再試一次。")
-    except Exception as e:
-        st.error(f"寫入紀錄檔發生錯誤：{e}")
-    finally:
-        # 確保釋放鎖
-        if lock.is_locked:
-            lock.release()
 
 # Page configuration
 st.set_page_config(
@@ -1174,6 +1146,50 @@ def create_risk_summary_chart(risk_counts):
     
     return fig
 
+def log_session_and_results(
+    results, age, gender, bmi, current_hr, smoking_status, drinking_status, age_group,
+    consent=False):
+    """把一整次評估寫入 Supabase：先寫 sessions，再批次 insert 各疾病結果。"""
+    try:
+        # 1) 先建立/記錄一筆 session（回傳 id）
+        session_res = supabase.table("user_sessions").insert({
+            "id": st.session_state["session_id"],     # 用我們自己產生的 uuid，方便串接
+            "consent": bool(consent),
+            "app_version": APP_VERSION,
+            "client_hint": "streamlit",               # 可依需求填
+        }).execute()
+
+        # 2) 準備「每個疾病一列」的資料
+        rows = []
+        for r in results:
+            rows.append({
+                "session_id": st.session_state["session_id"],
+                "age": int(age),
+                "gender": gender,
+                "bmi": float(bmi),
+                "heart_rate": int(current_hr),
+                "smoking_status": smoking_status,
+                "drinking_status": drinking_status,
+                "age_group": age_group,
+
+                "disease": r["disease"],
+                "category": r["category"],
+                "lp": float(r["lp"]),
+                "percentile": int(r["percentile"]),
+                "exact_percentile": int(r["exact_percentile"]),
+                "risk_category": r["risk_category"],
+
+                "model_version": MODEL_VERSION,
+                "timezone": "Asia/Taipei",
+            })
+
+        if rows:
+            insert_res = supabase.table("risk_events").insert(rows).execute()
+
+        st.toast("✅ 已匿名記錄本次評估（寫入 Supabase）", icon="✅")
+    except Exception as e:
+        st.error(f"寫入 Supabase 發生錯誤：{e}")
+
 def main():
     # Load data
     model_df = load_model_coefficients()
@@ -1287,7 +1303,10 @@ def main():
                     value=ss.committed["category_filters"].get(category, True),
                     help=f"在分析中包含{category}"
                 )
-    
+            
+            st.markdown("---")
+            consent = st.checkbox("✅ 我同意匿名記錄本次評估結果，用於日後研究分析（不含任何可識別個人資訊）", value=False)
+
             submitted = st.form_submit_button("✅ 確定（更新儀表板）")
     
         # 只有在提交時才「更新已提交的值」
@@ -1385,44 +1404,6 @@ def main():
                 })
     
     if results:
-        # === 新增：把一次提交的輸入 & 各疾病輸出，整理成「多列」 ===
-        session_id = get_or_create_session_id()
-        now_iso = datetime.now().isoformat(timespec="seconds")
-    
-        base_info = {
-            "timestamp_iso": now_iso,
-            "session_id": session_id,
-            "age": age,
-            "gender": gender,
-            "height_unit": height_unit,
-            "weight_unit": weight_unit,
-            "height": height,
-            "weight": weight,
-            "bmi": bmi,
-            "hr": current_hr,
-            "smoking": smoking_status,
-            "drinking": drinking_status,
-            "age_group": age_group,
-        }
-    
-        # 每個疾病一列，方便後續分析彙整
-        rows = []
-        for r in results:
-            rows.append({
-                **base_info,
-                "disease": r["disease"],
-                "percentile": r["percentile"],
-                "exact_percentile": r["exact_percentile"],
-                "lp": round(r["lp"], 6),
-                "risk_category": r["risk_category"],
-                "category": r["category"],
-            })
-    
-        append_usage_records(rows)
-        
-        st.success(f"✅ 已寫入：{_get_daily_log_path()}")
-        
-        
         # Create risk summary statistics
         risk_counts = {}
         for result in results:
@@ -1578,6 +1559,21 @@ def main():
     
     else:
         st.error("無法計算所選分類的風險百分位數。請檢查您的人口統計組是否有可用數據。")
+    
+    # 只有使用者勾選同意，才寫入
+    if consent and results:
+        log_session_and_results(
+            results=results,
+            age=age,
+            gender=gender,
+            bmi=bmi,
+            current_hr=current_hr,
+            smoking_status=smoking_status,
+            drinking_status=drinking_status,
+            age_group=age_group,
+            consent=consent
+        )
+
 
 if __name__ == "__main__":
     main()
