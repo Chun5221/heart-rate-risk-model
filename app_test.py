@@ -19,7 +19,7 @@ from datetime import datetime, timezone, timedelta
 
 # 初始化 Supabase Client（用 anon key 寫入）
 SUPABASE_URL = st.secrets["supabase"]["url"]
-SUPABASE_ANON_KEY = st.secrets["supabase"]["service_role_key"]
+SUPABASE_ANON_KEY = st.secrets["supabase"]["anon_key"]
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 # 產生一個 session_id（每次重開頁面或重新評估都可共用）
