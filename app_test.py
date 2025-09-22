@@ -1167,7 +1167,7 @@ def log_session_and_results(
                 "age": int(age),
                 "gender": gender,
                 "bmi": float(bmi),
-                "heart_rate": int(current_hr),
+                "current_hr": int(current_hr),
                 "smoking_status": smoking_status,
                 "drinking_status": drinking_status,
                 "age_group": age_group,
@@ -1577,3 +1577,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
