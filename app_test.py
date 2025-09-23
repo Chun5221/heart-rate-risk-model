@@ -1148,16 +1148,19 @@ def create_risk_summary_chart(risk_counts):
 
 def log_session_and_results(
     results, age, gender, bmi, current_hr, smoking_status, drinking_status, age_group,
-    consent=False):
+    consent=False
+    ):
+    
     """把一整次評估寫入 Supabase：先寫 sessions，再批次 insert 各疾病結果。"""
     try:
-        # 1) 先建立/記錄一筆 session（回傳 id）
-        session_res = supabase.table("user_sessions").insert({
-            "id": st.session_state["session_id"],     # 用我們自己產生的 uuid，方便串接
+        # 1) 先寫入/記錄一筆 session
+        supabase.table("user_sessions").insert({
+            "id": st.session_state["session_id"],
             "consent": bool(consent),
             "app_version": APP_VERSION,
-            "client_hint": "streamlit",               # 可依需求填
-        }).execute()
+            "client_hint": "streamlit",
+        }, returning="minimal"   # ← 關鍵：不回傳資料，避免被 RLS 的 SELECT 擋
+        ).execute()
 
         # 2) 準備「每個疾病一列」的資料
         rows = []
@@ -1184,7 +1187,9 @@ def log_session_and_results(
             })
 
         if rows:
-            insert_res = supabase.table("risk_events").insert(rows).execute()
+            supabase.table("risk_events").insert(
+                rows, returning="minimal"  # ← 同理這裡也關回傳
+            ).execute()
 
         st.toast("✅ 已匿名記錄本次評估（寫入 Supabase）", icon="✅")
     except Exception as e:
@@ -1577,7 +1582,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
