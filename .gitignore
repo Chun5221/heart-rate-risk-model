@@ -1,3 +1,7 @@
 DATA/
 *.csv
 *.parquet
+
+.streamlit/secrets.toml
+*.env
+.env.*
