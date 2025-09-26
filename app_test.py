@@ -708,18 +708,14 @@ def log_session_and_results(
         st.error(f"寫入 Supabase 發生錯誤：{e}")
 
 
-try:
-    model_df = load_model_coefficients()
-    percentile_df = load_percentile_data()
-except Exception as e:
-    st.error(f"載入模型資料失敗：{e}")
-    st.stop()
+here = Path(__file__).resolve().parent
+hits_coef = list(here.rglob("coefficients_250829.csv"))
+hits_manifest = list(here.rglob("manifest.json"))
 
-# 例：要求至少要有 Death 與 Type 2 Diabetes
-must_have = {"Death", "Type 2 Diabetes"}
-if not must_have.issubset(set(model_df["Disease"].unique())):
-    st.error(f"係數檔疾病不完整，至少需包含：{must_have}")
-    st.stop()
+with st.expander("🔎 路徑偵測（除錯用）", expanded=False):
+    st.write("app 位置：", str(here))
+    st.write("找到的 manifest：", [str(p) for p in hits_manifest][:5])
+    st.write("找到的 coefficients_250829.csv：", [str(p) for p in hits_coef][:5])
 
 def main():
     # Load data
@@ -1108,3 +1104,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
