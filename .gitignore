@@ -1,5 +1,4 @@
 DATA/
-*.csv
 *.parquet
 
 .streamlit/secrets.toml
