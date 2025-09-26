@@ -296,8 +296,8 @@ def _get_versions():
     try:
         if MANIFEST_FILE.exists():
             data = json.loads(MANIFEST_FILE.read_text(encoding="utf-8"))
-            coef_ver = data.get("coef_version", coef_ver)
-            pct_ver  = data.get("pct_version",  pct_ver)
+            coef_ver = data.get("coefficients_version", coef_ver)
+            pct_ver  = data.get("percentiles_version",  pct_ver)
     except Exception as e:
         st.warning(f"讀取 manifest.json 失敗，改用程式內預設版本：{e}")
     return coef_ver, pct_ver
