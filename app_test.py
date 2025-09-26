@@ -281,26 +281,26 @@ for category, diseases in DISEASE_CATEGORIES.items():
 
 
 ## [讀取 GH 資料夾]
-# === 版本預設（可用 manifest.json 覆蓋）===
-DEFAULT_COEF_VER = "250829"
-DEFAULT_PCT_VER  = "250829"
+# ---- 自動尋找 manifest.json ----
+_BASE = Path(__file__).resolve().parent
+_MANIFEST_CANDIDATES = [
+    _BASE / "heart-rate-risk-model" / "model" / "manifest.json",
+    _BASE / "model" / "manifest.json",
+    _BASE / "manifest.json",
+]
 
-BASE_DIR = Path(__file__).resolve().parent
-ASSETS_DIR = BASE_DIR / "model"
-COEF_DIR = ASSETS_DIR / "coefficients"
-PCT_DIR  = ASSETS_DIR / "percentiles"
-MANIFEST_FILE = ASSETS_DIR / "manifest.json"
+def _load_manifest() -> dict:
+    for p in _MANIFEST_CANDIDATES:
+        if p.exists():
+            data = json.loads(p.read_text(encoding="utf-8"))
+            base = p.parent  # 後續路徑一律相對於 manifest 所在資料夾
+            data["_base_dir"] = base
+            return data
+    raise FileNotFoundError(
+        "找不到 manifest.json，請將它放在 "
+        "heart-rate-risk-model/model/ 或 model/ 或專案根目錄。"
+    )
 
-def _get_versions():
-    coef_ver, pct_ver = DEFAULT_COEF_VER, DEFAULT_PCT_VER
-    try:
-        if MANIFEST_FILE.exists():
-            data = json.loads(MANIFEST_FILE.read_text(encoding="utf-8"))
-            coef_ver = data.get("coefficients_version", coef_ver)
-            pct_ver  = data.get("percentiles_version",  pct_ver)
-    except Exception as e:
-        st.warning(f"讀取 manifest.json 失敗，改用程式內預設版本：{e}")
-    return coef_ver, pct_ver
 
 # 你的疾病名稱對照（沿用你原本的 mapping）
 _DISEASE_MAP = {
@@ -325,68 +325,67 @@ _DISEASE_MAP = {
 
 # Load and parse the Cox regression model coefficients
 @st.cache_data
-def load_model_coefficients(coef_version: str | None = None) -> pd.DataFrame:
-    """從 repo 檔案讀取 Cox 係數表（含 REF），保留與你原始程式一致的欄位與值。"""
-    coef_ver, _ = _get_versions()
-    if coef_version:
-        coef_ver = coef_version
+def load_model_coefficients(path: str | Path | None = None) -> pd.DataFrame:
+    """
+    從 CSV 讀 Cox 係數表（保留 'REF' 字樣供你後續邏輯判斷）。
+    優先使用參數 path；否則依 manifest.json 的 coef_path。
+    """
+    m = _load_manifest()
+    file = Path(path) if path else (m["_base_dir"] / m["coef_path"])
+    if not file.exists():
+        raise FileNotFoundError(f"係數檔不存在：{file}")
 
-    path = COEF_DIR / f"coef_{coef_ver}.csv"
-    if not path.exists():
-        raise FileNotFoundError(f"找不到係數檔：{path}")
-
-    # 用 dtype=str 以保留 'REF'，後面再按需轉 float
-    df = pd.read_csv(path, dtype=str)
-    # 清理
+    # 用 dtype=str 保留 'REF'，後續需要再轉 float 的欄位你已有判斷
+    df = pd.read_csv(file, dtype=str)
     df.columns = df.columns.str.strip()
-    for c in ["Disease", "Variable", "Coef"]:
-        if c not in df.columns:
-            raise ValueError(f"係數檔缺少欄位：{c}")
-        df[c] = df[c].astype(str).str.strip()
 
-    # 病名標準化（與你原本一致）
+    # 基本欄位檢查
+    required = {"Disease", "Variable", "Coef"}
+    if not required.issubset(df.columns):
+        missing = required - set(df.columns)
+        raise ValueError(f"係數檔缺少欄位：{missing}")
+
+    # 去空白、標準化疾病名稱
+    for c in ["Disease", "Variable", "Coef"]:
+        df[c] = df[c].astype(str).strip()
+
     df["Disease"] = df["Disease"].map(_DISEASE_MAP).fillna(df["Disease"])
     return df
 
+
 # Load the percentile data from the uploaded file
 @st.cache_data
-def load_percentile_data(pct_version: str | None = None) -> pd.DataFrame:
-    """從 repo 檔案讀取風險百分位表（Tab 分隔），並套用你原本的清理／轉碼。"""
-    _, pct_ver = _get_versions()
-    if pct_version:
-        pct_ver = pct_version
+def load_percentile_data(path: str | Path | None = None) -> pd.DataFrame:
+    """
+    從 CSV 讀風險百分位表。
+    使用 sep=None + engine='python' 自動偵測分隔符（逗號/分號/Tab 都可）。
+    """
+    m = _load_manifest()
+    file = Path(path) if path else (m["_base_dir"] / m["pct_path"])
+    if not file.exists():
+        raise FileNotFoundError(f"百分位檔不存在：{file}")
 
-    path = PCT_DIR / f"HR_quantile_{pct_ver}.tsv"
-    if not path.exists():
-        raise FileNotFoundError(f"找不到百分位檔：{path}")
-
-    # 讀取：Tab 分隔；不指定 dtype 讓數值列維持數字、字串列保字串
-    df = pd.read_csv(path, sep="\t")
-
-    # 欄名與欄位清理（維持你原本邏輯）
-    # 讀完 df 後馬上清理欄名與字串欄位
+    # 自動偵測分隔符
+    df = pd.read_csv(file, sep=None, engine="python")
     df.columns = df.columns.str.strip()
-    # 重要：去除 Disease / AGE / SEX 可能的前後空白
-    for col in ["Disease", "AGE"]:
-        df[col] = df[col].astype(str).str.strip()
-    # SEX 也可能讀到字串型態＋空白，先轉成數字
-    df["SEX"] = pd.to_numeric(df["SEX"], errors="coerce")
-    # Clean up disease names
-    df["Disease"] = df["Disease"].map(_DISEASE_MAP).fillna(df["Disease"])
-    # Map gender codes (1=Male, 2=Female)
-    df["Gender"] = df["SEX"].map({1: "Male", 2: "Female"})
-    # 確保百分位欄位都是數值
+
+    # 期望欄位
     pct_cols = ['1%', '3%', '5%', '10%', '15%', '20%', '30%', '40%', '50%',
                 '60%', '70%', '80%', '85%', '90%', '95%', '98%', '100%']
-    for c in pct_cols:
-        if c in df.columns:
-            df[c] = pd.to_numeric(df[c], errors='coerce')
-
-    # 基本欄位檢查（避免部署時資料欄位異常）
-    required_cols = {"Disease","Gender","AGE"} | set(pct_cols)
-    missing = required_cols - set(df.columns)
+    must_have = {"Disease", "SEX", "AGE"} | set(pct_cols)
+    missing = must_have - set(df.columns)
     if missing:
         raise ValueError(f"百分位檔缺少欄位：{missing}")
+
+    # 清理與轉碼
+    df["Disease"] = df["Disease"].astype(str).str.strip()
+    df["Disease"] = df["Disease"].map(_DISEASE_MAP).fillna(df["Disease"])
+    df["AGE"] = df["AGE"].astype(str).str.strip()
+    df["SEX"] = pd.to_numeric(df["SEX"], errors="coerce")
+    df["Gender"] = df["SEX"].map({1: "Male", 2: "Female"})
+
+    for c in pct_cols:
+        df[c] = pd.to_numeric(df[c], errors='coerce')
 
     return df
 
