@@ -1,4 +1,6 @@
 {
-  "coefficients_version": "250829",
-  "percentiles_version": "250829"
+  "coef_version": "250829",
+  "pct_version": "250829",
+  "coef_path": "coefficients/coefficients_250829.csv",
+  "pct_path": "percentiles/percentiles_250829.csv"
 }
