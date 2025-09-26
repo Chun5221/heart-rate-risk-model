@@ -282,11 +282,11 @@ for category, diseases in DISEASE_CATEGORIES.items():
 
 ## [讀取 GH 資料夾]
 # === 版本預設（可用 manifest.json 覆蓋）===
-DEFAULT_COEF_VER = "2025-09-04"
-DEFAULT_PCT_VER  = "20250829"
+DEFAULT_COEF_VER = "250829"
+DEFAULT_PCT_VER  = "250829"
 
 BASE_DIR = Path(__file__).resolve().parent
-ASSETS_DIR = BASE_DIR / "model_assets"
+ASSETS_DIR = BASE_DIR / "model"
 COEF_DIR = ASSETS_DIR / "coefficients"
 PCT_DIR  = ASSETS_DIR / "percentiles"
 MANIFEST_FILE = ASSETS_DIR / "manifest.json"
