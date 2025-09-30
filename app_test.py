@@ -379,7 +379,7 @@ def load_model_coefficients(path: str | Path | None = None) -> pd.DataFrame:
 
     # 去空白、標準化疾病名稱
     for c in ["Disease", "Variable", "Coef"]:
-        df[c] = df[c].astype(str).strip()
+        df[c] = df[c].astype(str).str.strip()
 
     df["Disease"] = df["Disease"].map(_DISEASE_MAP).fillna(df["Disease"])
     return df
@@ -1128,3 +1128,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
