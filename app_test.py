@@ -18,35 +18,7 @@ import json
 here = Path(__file__).resolve().parent
 manifest_path = here / "model" / "manifest.json"
 
-with st.expander("🔎 路徑偵測（強化版）", expanded=True):
-    st.write("app 位置：", str(here))
-    st.write("manifest 期望位置：", str(manifest_path), "存在？", manifest_path.exists())
 
-    # 讀 manifest
-    if manifest_path.exists():
-        m = json.loads(manifest_path.read_text(encoding="utf-8"))
-        base_dir = manifest_path.parent
-        coef_rel = m.get("coef_path")
-        pct_rel  = m.get("pct_path")
-        coef_abs = (base_dir / coef_rel).resolve() if coef_rel else None
-        pct_abs  = (base_dir / pct_rel).resolve() if pct_rel else None
-
-        st.write("manifest base_dir（= model 資料夾）：", str(base_dir))
-        st.write("coef_path in manifest：", coef_rel)
-        st.write("=> 絕對路徑：", str(coef_abs))
-        st.write("=> 存在？", coef_abs.exists() if coef_abs else None)
-
-        st.write("pct_path in manifest：", pct_rel)
-        st.write("=> 絕對路徑：", str(pct_abs))
-        st.write("=> 存在？", pct_abs.exists() if pct_abs else None)
-
-        # 直接列出 model/ 與子資料夾內容
-        st.write("model/ 目錄列表：", [p.name for p in base_dir.iterdir()])
-        coef_dir = base_dir / "coefficients"
-        pct_dir  = base_dir / "percentiles"
-        st.write("model/coefficients/ 列表：", [p.name for p in coef_dir.glob("*")] if coef_dir.exists() else "coefficients 目錄不存在")
-        st.write("model/percentiles/ 列表：", [p.name for p in pct_dir.glob("*")] if pct_dir.exists() else "percentiles 目錄不存在")
-        
 ## [Supabase 連接]
 from supabase import create_client, Client
 import uuid
@@ -1128,4 +1100,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
