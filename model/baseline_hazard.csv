@@ -1,0 +1,18 @@
+Disease,t_years,H0
+Anemias,3.0,0.2452
+Anxiety,3.0,0.0528
+Asthma,3.0,0.1439
+Atherosclerosis,3.0,0.4935
+Atrial Fibrillation,3.0,0.5756
+Cardiac Arrhythmia,3.0,0.2797
+Chronic Kidney Disease,3.0,0.118
+Death,3.0,0.4197
+Dementia,3.0,0.2023
+Depression,3.0,0.1303
+Gastroesophageal Reflux Disease,3.0,0.5042
+Heart Failure,3.0,0.0972
+Hypertension,3.0,0.0826
+Ischemic Heart Disease,3.0,0.2474
+Ischemic Stroke,3.0,0.4699
+Migraine,3.0,0.2731
+Type 2 Diabetes,3.0,0.2194
