@@ -744,7 +744,15 @@ def log_session_and_results(
             "client_hint": "streamlit",
         }, returning="minimal"   # ← 關鍵：不回傳資料，避免被 RLS 的 SELECT 擋
         ).execute()
-
+        
+        # === [新增] 讀 manifest 取得 baseline_path 與 horizon 年數，做為寫表欄位 ===
+        m_log = _load_manifest()
+        baseline_version = str(m_log.get("baseline_path", "baseline_hazard.csv"))
+        try:
+            horizon_years_log = int(float(m_log.get("baseline_horizon_years", 3)))
+        except Exception:
+            horizon_years_log = 3
+        
         # 2) 準備「每個疾病一列」的資料
         rows = []
         for r in results:
@@ -764,6 +772,12 @@ def log_session_and_results(
                 "percentile": int(r["percentile"]),
                 "exact_percentile": int(r["exact_percentile"]),
                 "risk_category": r["risk_category"],
+                
+                # === [新增] 這四個欄位 ===
+                "abs_risk_3y": (float(r["abs_risk"]) if r.get("abs_risk") is not None else None),
+                "h0_3y": (float(r["H0"]) if r.get("H0") is not None else None),
+                "horizon_years": horizon_years_log,
+                "baseline_version": baseline_version,
 
                 "model_version": MODEL_VERSION,
                 "timezone": "Asia/Taipei",
