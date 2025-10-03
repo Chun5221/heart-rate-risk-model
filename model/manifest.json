@@ -1,6 +1,6 @@
 {
-  "coef_version": "250829",
-  "pct_version": "250829",
   "coef_path": "coefficients/coefficients_250829.csv",
-  "pct_path": "percentiles/percentiles_250829.csv"
+  "pct_path": "percentiles/percentiles_250829.csv", 
+  "baseline_path": "baseline_hazard.csv",
+  "baseline_horizon_years": 3
 }
