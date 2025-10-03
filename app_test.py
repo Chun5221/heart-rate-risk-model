@@ -784,13 +784,9 @@ def log_session_and_results(
             })
 
         if rows:
-            resp = supabase.table("risk_events").insert(
-                rows, returning="representation"   # ← 讓 Supabase 回你實際寫入的列與欄位
+            supabase.table("risk_events").insert(
+                rows, returning="minimal"  # ← 同理這裡也關回傳
             ).execute()
-            try:
-                st.write("DEBUG insert returned rows sample:", resp.data[:3])  # 看前幾列回傳
-            except Exception:
-                st.write("DEBUG insert resp:", resp)
 
         st.toast("✅ 已匿名記錄本次評估（寫入 Supabase）", icon="✅")
     except Exception as e:
