@@ -1,16 +1,18 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Sep  4 08:56:08 2025
+Created on Thu Oct  2 15:11:33 2025
 
 @author: chun5
+
+預計加入：計算機率的程式碼
 """
 
 import streamlit as st
 import pandas as pd
-import numpy as np
+# import numpy as np
 import plotly.graph_objects as go
-import plotly.express as px
-from plotly.subplots import make_subplots
+# import plotly.express as px
+# from plotly.subplots import make_subplots
 import math
 from pathlib import Path
 import json
@@ -22,7 +24,7 @@ manifest_path = here / "model" / "manifest.json"
 ## [Supabase 連接]
 from supabase import create_client, Client
 import uuid
-from datetime import datetime, timezone, timedelta
+# from datetime import datetime, timezone, timedelta
 
 
 # 初始化 Supabase Client（用 anon key 寫入）
@@ -394,6 +396,71 @@ def load_percentile_data(path: str | Path | None = None) -> pd.DataFrame:
     return df
 
 
+
+
+
+# === [新增] 讀取 baseline hazard ＆ 絕對風險計算 ===
+@st.cache_data
+def load_baseline_hazard(path: str | Path | None = None) -> pd.DataFrame:
+    """
+    從 CSV 讀每個疾病的 cumulative baseline hazard。
+    期望欄位：Disease, t_years, H0
+    - Disease：疾病英文名，與 _DISEASE_MAP 映射一致
+    - t_years：時間（年），例如 3 表示三年
+    - H0：對應 t_years 的累積基準危險度 H0(t)
+    """
+    m = _load_manifest()
+    file = Path(path) if path else (m["_base_dir"] / m.get("baseline_path", "baseline_hazard.csv"))
+    if not file.exists():
+        raise FileNotFoundError(f"baseline 檔不存在：{file}")
+
+    df = pd.read_csv(file)
+    required = {"Disease", "t_years", "H0"}
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(f"baseline 檔缺少欄位：{missing}")
+
+    # 清理與標準化
+    df["Disease"] = df["Disease"].astype(str).str.strip()
+    df["Disease"] = df["Disease"].map(_DISEASE_MAP).fillna(df["Disease"])
+    df["t_years"] = pd.to_numeric(df["t_years"], errors="coerce")
+    df["H0"] = pd.to_numeric(df["H0"], errors="coerce")
+
+    # 基本檢查
+    if df["t_years"].isna().any() or df["H0"].isna().any():
+        raise ValueError("baseline 檔中的 t_years 或 H0 出現非數值/缺失，請檢查資料。")
+
+    return df
+
+
+def lookup_H0(disease: str, t_years: float, baseline_df: pd.DataFrame) -> float | None:
+    """
+    取得指定疾病在 t_years 的 H0(t)。
+    若沒有剛好等於 t_years，退而求其次取 <= t_years 的最大 t_years。
+    """
+    rows = baseline_df[(baseline_df["Disease"] == disease) & (baseline_df["t_years"] == t_years)]
+    if not rows.empty:
+        return float(rows.iloc[0]["H0"])
+
+    # 取 <= t_years 的最大值（保守做法）
+    subset = baseline_df[(baseline_df["Disease"] == disease) & (baseline_df["t_years"] <= t_years)]
+    if subset.empty:
+        return None
+    subset = subset.sort_values("t_years")
+    return float(subset.iloc[-1]["H0"])
+
+
+def cox_absolute_risk(lp: float, H0: float) -> float:
+    """
+    Cox PH 絕對風險：Risk = 1 - exp( - H0(t) * exp(lp) )
+    回傳 0~1 的機率值
+    """
+    return 1.0 - math.exp(-H0 * math.exp(lp))
+
+
+
+
+
 def calculate_bmi(height, weight, height_unit, weight_unit):
     """Calculate BMI from height and weight with unit conversion"""
     try:
@@ -718,6 +785,12 @@ def main():
     model_df = load_model_coefficients()
     percentile_df = load_percentile_data()
     
+    # === [新增] baseline hazard 與預設時間窗（年） ===
+    baseline_df = load_baseline_hazard()
+    m = _load_manifest()
+    horizon_years = float(m.get("baseline_horizon_years", 3))
+    
+    
     # Get unique diseases available in both datasets
     available_diseases = set(model_df['Disease'].unique()) & set(percentile_df['Disease'].unique())
     diseases = list(available_diseases)
@@ -831,6 +904,15 @@ def main():
             consent = st.checkbox("✅ 我同意匿名記錄本次評估結果，用於日後研究分析（不含任何可識別個人資訊）", value=False)
 
             submitted = st.form_submit_button("✅ 確定（更新儀表板）")
+            
+            st.markdown("""
+            > ℹ️ **說明**  
+            > 目前結果同時顯示二種尺度：  
+            > - **百分位數**：你的風險在同年齡層、同性別中的相對位置  
+            > - **絕對風險**：不跟同儕比較，直接估計未來固定期間（預設三年）的罹病機率  
+            > 絕對風險係由 baseline hazard（H0）與你的線性預測值（LP）推導而來。
+            """)
+
     
         # 只有在提交時才「更新已提交的值」
         if submitted:
@@ -909,6 +991,11 @@ def main():
         )
         
         if user_lp is not None:
+            # === [新增] 先算絕對風險（預設為三年；可由 manifest 調 horizon_years） ===
+            H0 = lookup_H0(disease, horizon_years, baseline_df)
+            abs_risk = cox_absolute_risk(user_lp, H0) if H0 is not None else None
+            
+            
             percentile, exact_percentile = calculate_percentile_rank(
                 user_lp, disease, gender, age_group, percentile_df
             )
@@ -923,7 +1010,12 @@ def main():
                     'card_class': card_class,
                     'color': color,
                     'lp': user_lp,
-                    'category': DISEASE_TO_CATEGORY.get(disease, '其他')
+                    'category': DISEASE_TO_CATEGORY.get(disease, '其他'), 
+                    
+                    # === [新增] 兩個欄位：H0 與 絕對風險 ===
+                    'H0': H0,
+                    'abs_risk_years': horizon_years,
+                    'abs_risk': abs_risk
                 })
     
     if results:
@@ -1036,6 +1128,9 @@ def main():
                             <hr style="border-color: rgba(255,255,255,0.3);">
                             <p style="font-size: 0.9rem;">{interpretation}</p>
                             <p style="font-size: 0.8rem;"><em>{recommendation}</em></p>
+                            {"<p style='font-size: 0.95rem; font-weight: 700;'>"
+                             f"{int(result['abs_risk_years']) if result['abs_risk_years'].is_integer() else result['abs_risk_years']}年內罹病機率：約 "
+                             f"{result['abs_risk']*100:.1f}%</p>" if result.get('abs_risk') is not None else ""}
                             <p style="font-size: 0.7rem;">線性預測值: {result['lp']:.3f}</p>
                         </div>
                         """, unsafe_allow_html=True)
@@ -1049,7 +1144,12 @@ def main():
             '您的百分位數': [f"{r['percentile']}" for r in results],
             '線性預測值': [f"{r['lp']:.3f}" for r in results],
             '風險等級': [r['risk_category'] for r in results],
-            '人口統計組': [f"{gender_chinese}, {age_group}" for _ in results]
+            '人口統計組': [f"{gender_chinese}, {age_group}" for _ in results],
+            
+            # === [新增] 絕對風險（預設三年） ===
+            f'絕對風險（{int(horizon_years) if float(horizon_years).is_integer() else horizon_years}年）': [
+                (f"{r['abs_risk']*100:.1f}%" if r.get('abs_risk') is not None else "—") for r in results
+            ],
         })
         
         st.dataframe(comparison_df, use_container_width=True, hide_index=True)
